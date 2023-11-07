@@ -1,4 +1,3 @@
-import LeanCourse.Common
 import Mathlib.Algebra.BigOperators.Ring
 import Mathlib.Data.Real.Basic
 
@@ -81,15 +80,20 @@ theorem addAlt_comm (a b : Point) : addAlt a b = addAlt b a := by
   repeat' apply add_comm
 
 protected theorem add_assoc (a b c : Point) : (a.add b).add c = a.add (b.add c) := by
-  sorry
+  rw [add, add, add, add]
+  simp
+  exact ⟨add_assoc a.x b.x c.x,
+  add_assoc a.y b.y c.y,
+  add_assoc a.z b.z c.z⟩
 
 def smul (r : ℝ) (a : Point) : Point :=
-  sorry
+  ⟨r * a.x, r * a.y, r * a.z⟩
 
 theorem smul_distrib (r : ℝ) (a b : Point) :
     (smul r a).add (smul r b) = smul r (a.add b) := by
-  sorry
-
+  simp [smul, add]
+  rw [mul_add r a.x b.x, mul_add r a.y b.y, mul_add r a.z b.z]
+  simp
 end Point
 
 structure StandardTwoSimplex where
@@ -126,9 +130,24 @@ def midpoint (a b : StandardTwoSimplex) : StandardTwoSimplex
   sum_eq := by field_simp; linarith [a.sum_eq, b.sum_eq]
 
 def weightedAverage (lambda : Real) (lambda_nonneg : 0 ≤ lambda) (lambda_le : lambda ≤ 1)
-    (a b : StandardTwoSimplex) : StandardTwoSimplex :=
-  sorry
+    (a b : StandardTwoSimplex) : StandardTwoSimplex where
+  x := lambda * a.x + (1 - lambda) * b.x
+  y := lambda * a.y + (1 - lambda) * b.y
+  z := lambda * a.z + (1 - lambda) * b.z
+  x_nonneg := by
+    have : 0 ≤ 1 - lambda := by simp; assumption
+    exact add_nonneg (mul_nonneg lambda_nonneg a.x_nonneg) (mul_nonneg this b.x_nonneg)
+  y_nonneg := by
+    have : 0 ≤ 1 - lambda := by simp; assumption
+    exact add_nonneg (mul_nonneg lambda_nonneg a.y_nonneg) (mul_nonneg this b.y_nonneg)
+  z_nonneg := by
+    have : 0 ≤ 1 - lambda := by simp; assumption
+    exact add_nonneg (mul_nonneg lambda_nonneg a.z_nonneg) (mul_nonneg this b.z_nonneg)
+  sum_eq := by calc lambda * a.x + (1 - lambda) * b.x + (lambda * a.y + (1 - lambda) * b.y) + (lambda * a.z + (1 - lambda) * b.z) = lambda * (a.x + a.y + a.z) + (1 - lambda) * (b.x + b.y + b.z) := by ring
+  _ = 1 := by rw [a.sum_eq, b.sum_eq]; simp
 
+
+-- how to put instance obtained by tactics inside the formula without declaring before???
 end
 
 end StandardTwoSimplex

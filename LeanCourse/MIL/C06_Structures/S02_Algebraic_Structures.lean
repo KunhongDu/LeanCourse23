@@ -1,4 +1,3 @@
-import LeanCourse.Common
 import Mathlib.Data.Real.Basic
 
 namespace C06S02
@@ -54,8 +53,14 @@ def permGroup {α : Type*} : Group₁ (Equiv.Perm α)
   mul_left_inv := Equiv.self_trans_symm
 
 structure AddGroup₁ (α : Type*) where
-  (add : α → α → α)
-  -- fill in the rest
+  add : α → α → α
+  zero : α
+  neg : α → α
+  add_assoc : ∀ x y z : α, add (add x y) z = add x (add y z)
+  add_zero : ∀ x : α, add x zero = x
+  zero_add : ∀ x : α, add zero x = x
+  add_left_inv : ∀ x : α, add (neg x) x = zero
+
 @[ext]
 structure Point where
   x : ℝ
@@ -64,14 +69,25 @@ structure Point where
 
 namespace Point
 
+#check Point
+
 def add (a b : Point) : Point :=
   ⟨a.x + b.x, a.y + b.y, a.z + b.z⟩
 
-def neg (a : Point) : Point := sorry
+def neg (a : Point) : Point := ⟨-a.x, -a.y, -a.z⟩
 
-def zero : Point := sorry
+def zero : Point := ⟨0, 0, 0⟩
 
-def addGroupPoint : AddGroup₁ Point := sorry
+def addGroupPoint : AddGroup₁ Point where
+  add := Point.add
+  zero := Point.zero
+  neg := Point.neg
+  add_assoc := by simp [add]; intro x y z; repeat ring
+  add_zero := by simp [add, zero]
+  zero_add := by simp [add, zero]
+  add_left_inv := by simp [add, neg, zero]
+
+
 
 end Point
 
@@ -157,6 +173,7 @@ instance hasOneGroup₂ {α : Type*} [Group₂ α] : One α :=
 
 instance hasInvGroup₂ {α : Type*} [Group₂ α] : Inv α :=
   ⟨Group₂.inv⟩
+
 
 section
 variable {α : Type*} (f g : Equiv.Perm α)

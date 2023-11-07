@@ -2,7 +2,7 @@
 
 Please fill out the following:
 ```
-First & last name:
+First & last name: Kunhong Du
 Uni-ID:
 ```
 

@@ -1,7 +1,7 @@
 import Mathlib.Data.Set.Lattice
 import Mathlib.Data.Nat.Prime
 import Mathlib.Data.Nat.Parity
-import LeanCourse.Common
+import Mathlib.Tactic
 
 section
 variable {α : Type*}
@@ -48,7 +48,21 @@ example : s ∩ (t ∪ u) ⊆ s ∩ t ∪ s ∩ u := by
   . right; exact ⟨xs, xu⟩
 
 example : s ∩ t ∪ s ∩ u ⊆ s ∩ (t ∪ u) := by
-  sorry
+  intro x h
+  simp at h
+  simp
+  constructor
+  . rcases h with h1 | h2
+    exact h1.1
+    exact h2.1
+  rcases h with h1 | h2
+  left
+  exact h1.2
+  right
+  exact h2.2
+
+
+
 example : (s \ t) \ u ⊆ s \ (t ∪ u) := by
   intro x xstu
   have xs : x ∈ s := xstu.1.1
@@ -68,7 +82,13 @@ example : (s \ t) \ u ⊆ s \ (t ∪ u) := by
   rintro (xt | xu) <;> contradiction
 
 example : s \ (t ∪ u) ⊆ (s \ t) \ u := by
-  sorry
+  rintro x ⟨xs, xtu⟩
+  simp at xtu
+  push_neg at xtu
+  simp
+  exact ⟨⟨xs, xtu.1⟩,  xtu.2⟩
+
+
 example : s ∩ t = t ∩ s := by
   ext x
   simp only [mem_inter_iff]
@@ -86,8 +106,10 @@ example : s ∩ t = t ∩ s := by
   · rintro x ⟨xs, xt⟩; exact ⟨xt, xs⟩
   . rintro x ⟨xt, xs⟩; exact ⟨xs, xt⟩
 
-example : s ∩ t = t ∩ s :=
-    Subset.antisymm sorry sorry
+example : s ∩ t = t ∩ s := by
+  apply Subset.antisymm
+  sorry
+
 example : s ∩ (s ∪ t) = s := by
   sorry
 
@@ -98,7 +120,30 @@ example : s \ t ∪ t = s ∪ t := by
   sorry
 
 example : s \ t ∪ t \ s = (s ∪ t) \ (s ∩ t) := by
-  sorry
+  ext x; constructor
+  · rintro (⟨xs, xnt⟩ | ⟨xt, xns⟩)
+    · constructor
+      left
+      exact xs
+      rintro ⟨_, xt⟩
+      contradiction
+    . constructor
+      right
+      exact xt
+      rintro ⟨xs, _⟩
+      contradiction
+  rintro ⟨xs | xt, nxst⟩
+  · left
+    use xs
+    intro xt
+    apply nxst
+    constructor <;> assumption
+  . right; use xt; intro xs
+    apply nxst
+    constructor <;> assumption
+
+
+
 
 def evens : Set ℕ :=
   { n | Even n }
@@ -119,7 +164,16 @@ example (x : ℕ) : x ∈ (univ : Set ℕ) :=
   trivial
 
 example : { n | Nat.Prime n } ∩ { n | n > 2 } ⊆ { n | ¬Even n } := by
-  sorry
+  intro n
+  simp
+  intro nprime
+  rcases Nat.Prime.eq_two_or_odd nprime with h | h
+  · rw [h]
+    intro
+    linarith
+  rw [Nat.even_iff, h]
+  norm_num
+
 
 #print Prime
 
@@ -155,10 +209,15 @@ section
 variable (ssubt : s ⊆ t)
 
 example (h₀ : ∀ x ∈ t, ¬Even x) (h₁ : ∀ x ∈ t, Prime x) : ∀ x ∈ s, ¬Even x ∧ Prime x := by
-  sorry
+  intro x h
+  specialize h₀ x (ssubt h)
+  specialize h₁ x (ssubt h)
+  exact ⟨h₀, h₁⟩
 
 example (h : ∃ x ∈ s, ¬Even x ∧ Prime x) : ∃ x ∈ t, Prime x := by
-  sorry
+  obtain ⟨x, hx⟩ := h
+  use x
+  exact ⟨ssubt hx.1, hx.2.2⟩
 
 end
 
@@ -197,7 +256,31 @@ example : (⋂ i, A i ∩ B i) = (⋂ i, A i) ∩ ⋂ i, B i := by
 
 
 example : (s ∪ ⋂ i, A i) = ⋂ i, A i ∪ s := by
-  sorry
+  ext x
+  simp only [mem_inter_iff, mem_iInter]
+  constructor
+  . intro h
+    simp at h
+    intro i
+    rcases h with h1 | h1
+    right
+    assumption
+    left
+    exact h1 i
+  . intro h
+    by_cases h1 : (x ∈ s)
+    left
+    exact h1
+    right
+    simp
+    intro i
+    specialize h i
+    simp at h
+    rcases h with h₁ | h₁
+    exact h₁
+    exfalso
+    exact h1 h₁
+
 
 def primes : Set ℕ :=
   { x | Nat.Prime x }
@@ -218,7 +301,19 @@ example : (⋂ p ∈ primes, { x | ¬p ∣ x }) ⊆ { x | x = 1 } := by
   apply Nat.exists_prime_and_dvd
 
 example : (⋃ p ∈ primes, { x | x ≤ p }) = univ := by
-  sorry
+  ext n
+  constructor
+  . exact fun a => trivial
+  . simp
+    obtain ⟨i, hi⟩ := Nat.exists_infinite_primes n
+    use i
+    exact ⟨hi.2, hi.1⟩
+
+
+
+#check Nat.exists_infinite_primes
+
+example (p : ℕ) : Nat.Prime p ↔ p ∈ primes := by rfl
 
 end
 

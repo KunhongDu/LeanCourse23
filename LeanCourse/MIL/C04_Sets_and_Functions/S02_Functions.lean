@@ -1,4 +1,3 @@
-import LeanCourse.Common
 import Mathlib.Data.Set.Lattice
 import Mathlib.Data.Set.Function
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
@@ -34,34 +33,69 @@ example : s ⊆ f ⁻¹' (f '' s) := by
   use x, xs
 
 example : f '' s ⊆ v ↔ s ⊆ f ⁻¹' v := by
-  sorry
+  constructor
+  . simp
+  simp
 
 example (h : Injective f) : f ⁻¹' (f '' s) ⊆ s := by
-  sorry
+  rw [Injective] at h
+  intro x hx
+  simp at hx
+  obtain ⟨x1, hx⟩ := hx
+  rw [h hx.2] at hx
+  exact hx.1
+
 
 example : f '' (f ⁻¹' u) ⊆ u := by
-  sorry
+  simp
+  rfl
 
 example (h : Surjective f) : u ⊆ f '' (f ⁻¹' u) := by
-  sorry
+  rw [Surjective] at h
+  intro x hx
+  obtain ⟨a, ha⟩ :=  h x
+  use a
+  simp
+  rw [← ha] at hx
+  exact ⟨hx, ha⟩
 
 example (h : s ⊆ t) : f '' s ⊆ f '' t := by
-  sorry
+  simp
+  intro x hx
+  use x
+  exact ⟨h hx, rfl⟩
 
 example (h : u ⊆ v) : f ⁻¹' u ⊆ f ⁻¹' v := by
-  sorry
+  intro x hx
+  simp
+  simp at hx
+  exact h hx
 
 example : f ⁻¹' (u ∪ v) = f ⁻¹' u ∪ f ⁻¹' v := by
-  sorry
+  ext x
+  simp
 
 example : f '' (s ∩ t) ⊆ f '' s ∩ f '' t := by
+  intro x hx
   sorry
 
 example (h : Injective f) : f '' s ∩ f '' t ⊆ f '' (s ∩ t) := by
-  sorry
+  rw [Injective] at h
+  intro x hx
+  simp at hx
+  simp
+  obtain ⟨x₁, hx₁⟩ := hx.1
+  obtain ⟨x₂, hx₂⟩ := hx.2
+  rw [← hx₁.2] at hx₂
+  rw [← h hx₂.2] at hx₁
+  use x₂
+  exact ⟨⟨hx₁.1, hx₂.1⟩, hx₁.2⟩
 
 example : f '' s \ f '' t ⊆ f '' (s \ t) := by
+  intro x hx
   sorry
+
+
 
 example : f ⁻¹' u \ f ⁻¹' v ⊆ f ⁻¹' (u \ v) := by
   sorry
@@ -97,7 +131,7 @@ example : (f '' ⋂ i, A i) ⊆ ⋂ i, f '' A i := by
 example (i : I) (injf : Injective f) : (⋂ i, f '' A i) ⊆ f '' ⋂ i, A i := by
   intro y; simp
   intro h
-  rcases h i with ⟨x, xAi, fxeq⟩
+  rcases h i with ⟨x, _, fxeq⟩
   use x; constructor
   · intro i'
     rcases h i' with ⟨x', x'Ai, fx'eq⟩
@@ -143,16 +177,46 @@ example : range exp = { y | y > 0 } := by
   rw [exp_log ypos]
 
 example : InjOn sqrt { x | x ≥ 0 } := by
-  sorry
+  intro x hx x2 hx2 h
+  simp at hx
+  simp at hx2
+  calc x = (sqrt x)^2 := by rw [sq_sqrt hx]
+    _ = (sqrt x2)^2 := by rw [h]
+    _ = x2 := by rw [sq_sqrt hx2]
 
 example : InjOn (fun x ↦ x ^ 2) { x : ℝ | x ≥ 0 } := by
-  sorry
+  intro x hx x2 hx2 h
+  simp at h
+  calc x = sqrt (x^2) := by rw [sqrt_sq hx]
+  _ = sqrt (x2^2) := by rw [h]
+  _ = x2 := by rw [sqrt_sq hx2]
 
 example : sqrt '' { x | x ≥ 0 } = { y | y ≥ 0 } := by
-  sorry
+  ext y
+  constructor
+  . intro h
+    simp at h
+    simp
+    obtain ⟨x, ⟨hx, hy⟩⟩ := h
+    rw [← hy]
+    exact sqrt_nonneg x
+  . intro h
+    simp at h
+    simp
+    use y^2
+    exact ⟨sq_nonneg y, sqrt_sq h⟩
 
 example : (range fun x ↦ x ^ 2) = { y : ℝ | y ≥ 0 } := by
-  sorry
+  ext y
+  simp
+  constructor
+  . intro h
+    obtain ⟨y1, hy1⟩ := h
+    rw [← hy1]
+    exact sq_nonneg y1
+  . intro h
+    use sqrt y
+    exact sq_sqrt h
 
 end
 
@@ -163,10 +227,17 @@ variable {α β : Type*} [Inhabited α]
 
 variable (P : α → Prop) (h : ∃ x, P x)
 
+#check P
+
 #check Classical.choose h
 
 example : P (Classical.choose h) :=
   Classical.choose_spec h
+
+-- what does it even mean???
+
+
+#check P (Classical.choose h)
 
 noncomputable section
 
@@ -174,6 +245,8 @@ open Classical
 
 def inverse (f : α → β) : β → α := fun y : β ↦
   if h : ∃ x, f x = y then Classical.choose h else default
+
+-- if a type is habited ?? why well-defined?
 
 theorem inverse_spec {f : α → β} (y : β) (h : ∃ x, f x = y) : f (inverse f y) = y := by
   rw [inverse, dif_pos h]
@@ -183,12 +256,32 @@ variable (f : α → β)
 
 open Function
 
-example : Injective f ↔ LeftInverse (inverse f) f :=
-  sorry
+example : Injective f ↔ LeftInverse (inverse f) f := by
+  rw [Injective, LeftInverse]
+  constructor
+  . intro hf x
+    rw [inverse]
+    have h : ∃ x1, f x1 = f x := by use x
+    rw [dif_pos h]
+    have : f (choose h) = f x := by exact Classical.choose_spec h
+    exact hf this
+  . intro h a₁ a₂ h12
+    have h1 := h a₁
+    have h2 := h a₂
+    rw [← h1, h12, h2]
 
-example : Surjective f ↔ RightInverse (inverse f) f :=
-  sorry
-
+example : Surjective f ↔ RightInverse (inverse f) f := by
+  rw [Surjective, Function.RightInverse]
+  constructor
+  . intro hf y
+    rw [inverse]
+    have h: ∃ x1, f x1 = y := hf y
+    rw [dif_pos h]
+    exact Classical.choose_spec h
+  . intro hf y
+    rw [LeftInverse] at hf
+    specialize hf y
+    use (inverse f y)
 end
 
 section
@@ -203,11 +296,26 @@ theorem Cantor : ∀ f : α → Set α, ¬Surjective f := by
     intro h'
     have : j ∉ f j := by rwa [h] at h'
     contradiction
-  have h₂ : j ∈ S
-  sorry
-  have h₃ : j ∉ S
-  sorry
+  have h₂ : j ∈ S := by
+    simp
+    exact h₁
+  have h₃ : j ∉ S := by
+    rwa [h] at h₁
   contradiction
 
 -- COMMENTS: TODO: improve this
+
+theorem Cantor2 : ∀ f : α → Set α, ¬Surjective f := by
+  intro f surjf
+  let S := { i | i ∉ f i }
+  rcases surjf S with ⟨j, h⟩
+  by_cases hj : (j ∈ S)
+  . have hj2 : j ∉ S := by
+      simp at hj
+      rwa [h] at hj
+    contradiction
+  . have hj2 : j ∈ S := by
+      simp at hj
+      rwa [h] at hj
+    contradiction
 end

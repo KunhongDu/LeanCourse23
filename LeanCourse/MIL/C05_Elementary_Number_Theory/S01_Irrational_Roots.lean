@@ -1,4 +1,3 @@
-import LeanCourse.Common
 import Mathlib.Data.Nat.Factorization.Basic
 import Mathlib.Data.Nat.Prime
 import Std.Data.Nat.Gcd
@@ -53,23 +52,63 @@ example (a b c : Nat) (h : a * b = a * c) (h' : a ≠ 0) : b = c :=
 example {m n : ℕ} (coprime_mn : m.Coprime n) : m ^ 2 ≠ 2 * n ^ 2 := by
   intro sqr_eq
   have : 2 ∣ m := by
-    sorry
+    have : 2 ∣ m^2 := by
+      rw [sqr_eq]
+      simp
+    exact Nat.Prime.dvd_of_dvd_pow Nat.prime_two this
   obtain ⟨k, meq⟩ := dvd_iff_exists_eq_mul_left.mp this
   have : 2 * (2 * k ^ 2) = 2 * n ^ 2 := by
     rw [← sqr_eq, meq]
     ring
-  have : 2 * k ^ 2 = n ^ 2 :=
-    sorry
-  have : 2 ∣ n := by
-    sorry
+  have : 2 * k ^ 2 = n ^ 2 := by
+    simp at this
+    assumption
+  have : 2 ∣ n ^ 2 := by
+    rw [← this]
+    simp
+  have : 2 ∣ n := Nat.Prime.dvd_of_dvd_pow Nat.prime_two this
   have : 2 ∣ m.gcd n := by
-    sorry
+    apply dvd_gcd
+    <;> assumption
   have : 2 ∣ 1 := by
-    sorry
+    convert this
+    symm
+    exact coprime_mn
   norm_num at this
 
+#check dvd_gcd
+
 example {m n p : ℕ} (coprime_mn : m.Coprime n) (prime_p : p.Prime) : m ^ 2 ≠ p * n ^ 2 := by
-  sorry
+  intro sqr_eq
+  have : p ∣ m := by
+    have : p ∣ m^2 := by
+      rw [sqr_eq]
+      simp
+    exact Nat.Prime.dvd_of_dvd_pow prime_p this
+  obtain ⟨k, meq⟩ := dvd_iff_exists_eq_mul_left.mp this
+  have : p * (p * k ^ 2) = p * n ^ 2 := by
+    rw [← sqr_eq, meq]
+    ring
+  have : p * k ^ 2 = n ^ 2 := by
+    apply (mul_right_inj' _).mp this
+    exact prime_p.ne_zero
+  have : p ∣ n ^ 2 := by
+    rw [← this]
+    simp
+  have : p ∣ n := Nat.Prime.dvd_of_dvd_pow prime_p this
+  have : p ∣ m.gcd n := by
+    apply dvd_gcd
+    <;> assumption
+  have : p ∣ 1 := by
+    convert this
+    symm
+    exact coprime_mn
+  have : 2 ≤ 1 := by
+    apply prime_p.two_le.trans
+    exact Nat.le_of_dvd zero_lt_one this
+  norm_num at this
+
+
 #check Nat.factors
 #check Nat.prime_of_mem_factors
 #check Nat.prod_factors
