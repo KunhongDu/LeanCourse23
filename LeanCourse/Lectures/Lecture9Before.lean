@@ -52,7 +52,6 @@ def diff (x y : PosReal) : ℝ := x - y
 
 
 
-
 /-
 * We use `CoeSort` to coerce to `Type _` (or `Sort _`)
 * We use `CoeFun` to coerce to functions.
@@ -220,6 +219,7 @@ For instance, instead of having a lemma stating that an intersection of two subg
 have the lattice operation `⊓` and all lemmas about lattices are readily available.
 -/
 
+
 example {G : Type*} [Group G] : CompleteLattice (Subgroup G) := by infer_instance
 
 example {G : Type*} [Group G] (H H' : Subgroup G) :
@@ -360,27 +360,70 @@ open Subgroup
 /- Define the conjugate of a subgroup. -/
 def conjugate (x : G) (H : Subgroup G) : Subgroup G where
   carrier := {a : G | ∃ h, h ∈ H ∧ a = x * h * x⁻¹}
-  one_mem' := by sorry
-  inv_mem' := by sorry
-  mul_mem' := by sorry
+  one_mem' := by simp; use 1; simp; exact Subgroup.one_mem H
+  inv_mem' := by
+    simp; intro g₁ g₂ hg₂ hg₁; use (g₂⁻¹)
+    constructor
+    exact Subgroup.inv_mem H hg₂
+    rw [hg₁]
+    simp [mul_assoc]
+  mul_mem' := by
+    simp; intro a b g₁ hg₁1 hg₁2 g₂ hg₂1 hg₂2
+    use (g₁ * g₂)
+    simp [hg₁2, hg₂2]
+    exact Subgroup.mul_mem H hg₁1 hg₂1
 
 /- Now let's prove that a group acts on its own subgroups by conjugation. -/
 
-lemma conjugate_one (H : Subgroup G) : conjugate 1 H = H := by sorry
+lemma conjugate_one (H : Subgroup G) : conjugate 1 H = H := by
+  ext x
+  simp [conjugate]
+
 
 lemma conjugate_mul (x y : G) (H : Subgroup G) :
-    conjugate (x * y) H = conjugate x (conjugate y H) := by sorry
+    conjugate (x * y) H = conjugate x (conjugate y H) := by
+    simp [conjugate]
+    ext g
+    simp
+    constructor
+    . intro hyp
+      obtain ⟨h, hyp⟩ := hyp
+      use (y * h * y⁻¹)
+      simp
+      constructor
+      . exact hyp.1
+      rw [hyp.2]
+      group
+    . intro hyp
+      obtain ⟨h, hyp⟩ := hyp
+      use (y⁻¹ * h * y)
+      rcases hyp with ⟨⟨h₁, hyp1⟩, hyp2⟩
+      constructor
+      . rw [hyp1.2]
+        group
+        exact hyp1.1
+      rw [hyp2]
+      group
+
+-- this is disaster
+
 
 instance : MulAction G (Subgroup G) where
   smul := conjugate
-  one_smul := sorry
-  mul_smul := sorry
+  one_smul := conjugate_one
+  -- how to rw • into cojugate, smul unidentified??
+  mul_smul := conjugate_mul
 
 
 /- State and prove that the preimage of `U` under the composition of `φ` and `ψ` is a preimage
 of a preimage of `U`. Use `comap` and `comp` in the statement. -/
-example (φ : G →* H) (ψ : H →* K) (U : Subgroup K) : sorry := sorry
+example (φ : G →* H) (ψ : H →* K) (U : Subgroup K) : (Subgroup.comap φ (Subgroup.comap ψ U)) = Subgroup.comap (MonoidHom.comp ψ φ) U  := by
+  ext g
+  simp [comap, MonoidHom.comp]
+
 
 /- State and prove that the image of `S` under the composition of `φ` and `ψ`
 is a image of an image of `S`. -/
-example (φ : G →* H) (ψ : H →* K) (S : Subgroup G) : sorry := sorry
+example (φ : G →* H) (ψ : H →* K) (S : Subgroup G) : Subgroup.map ψ (Subgroup.map φ S) = Subgroup.map (MonoidHom.comp ψ φ) S := by
+  ext k
+  simp [Subgroup.map, MonoidHom.comp]

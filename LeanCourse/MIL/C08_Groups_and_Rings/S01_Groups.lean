@@ -74,7 +74,7 @@ example {G : Type*} [Group G] (H H' : Subgroup G) :
   ((H ⊓ H' : Subgroup G) : Set G) = (H : Set G) ∩ (H' : Set G) := rfl
 
 example {G : Type*} [Group G] (H H' : Subgroup G) :
-    ((H ⊔ H' : Subgroup G) : Set G) = Subgroup.closure ((H : Set G) ∪ (H' : Set G)) := by
+    ((H ⊔ H' : Subgroup G) : Set G) = Subgroup.closure ((H : Set G) ∪ (H' : Set G)) := bym
   rw [Subgroup.sup_eq_closure]
 
 example {G : Type*} [Group G] (x : G) : x ∈ (⊤ : Subgroup G) := trivial
@@ -115,11 +115,16 @@ variable {G H : Type*} [Group G] [Group H]
 
 open Subgroup
 
-example (φ : G →* H) (S T : Subgroup H) (hST : S ≤ T) : comap φ S ≤ comap φ T :=by
-  sorry
+example (φ : G →* H) (S T : Subgroup H) (hST : S ≤ T) : comap φ S ≤ comap φ T := --by
+  -- simp [comap]
+  -- intro g hg
+  -- exact hST hg
+  fun _ hg ↦ hST hg
 
 example (φ : G →* H) (S T : Subgroup G) (hST : S ≤ T) : map φ S ≤ map φ T :=by
-  sorry
+  intro x hx
+  rcases hx with ⟨y, hy, rfl⟩
+  use y, hST hy
 
 variable {K : Type*} [Group K]
 
@@ -153,13 +158,25 @@ lemma eq_bot_iff_card {G : Type*} [Group G] {H : Subgroup G} [Fintype H] :
     H = ⊥ ↔ card H = 1 := by
   suffices (∀ x ∈ H, x = 1) ↔ ∃ x ∈ H, ∀ a ∈ H, a = x by
     simpa [eq_bot_iff_forall, card_eq_one_iff]
-  sorry
+  constructor
+  . intro h
+    use 1
+    exact ⟨H.one_mem, h⟩
+  . intro h
+    obtain ⟨x, _, h⟩ := h
+    have := h 1 H.one_mem
+    rw [← this] at h
+    exact h
 
 #check card_dvd_of_le
 
 lemma inf_bot_of_coprime {G : Type*} [Group G] (H K : Subgroup G) [Fintype H] [Fintype K]
     (h : (card H).Coprime (card K))  : H ⊓ K = ⊥ := by
-    sorry
+  have c1 : card (H ⊓ K : Subgroup G) ∣  card H := card_dvd_of_le inf_le_left
+  have c2 : card (H ⊓ K : Subgroup G) ∣  card K := card_dvd_of_le inf_le_right
+  have : card (H ⊓ K : Subgroup G) = 1 := by exact Nat.eq_one_of_dvd_coprimes h c1 c2
+  exact eq_bot_iff_card.mpr this
+
 open Equiv
 
 example {X : Type*} [Finite X] : Subgroup.closure {σ : Perm X | Perm.IsCycle σ} = ⊤ :=
@@ -181,7 +198,7 @@ def myMorphism : FreeGroup S →* Perm (Fin 5) :=
                      | .c => c[2, 3]
 
 
-def myGroup := PresentedGroup {.of () ^ 3} deriving Group
+def myGroup := PresentedGroup {(.of ()) ^ 3} deriving Group
 
 def myMap : Unit → Perm (Fin 5)
 | () => c[1, 2, 3]
@@ -212,6 +229,8 @@ toPermHom G X
 
 def CayleyIsoMorphism (G : Type*) [Group G] : G ≃* (toPermHom G G).range :=
 Equiv.Perm.subgroupOfMulAction G G
+
+example {G X : Type*} [Group G] [MulAction G X] : Setoid X := orbitRel G X
 
 example {G X : Type*} [Group G] [MulAction G X] :
     X ≃ (ω : orbitRel.Quotient G X) × (orbit G (Quotient.out' ω)) :=
@@ -272,7 +291,11 @@ open MonoidHom
 #check Nat.eq_of_mul_eq_mul_right
 
 lemma aux_card_eq [Fintype G] (h' : card G = card H * card K) : card (G⧸H) = card K := by
-  sorry
+  have := calc
+    card (G ⧸ H) * card H = card G := by rw [← H.index_eq_card, H.index_mul_card]
+    _                     = card K * card H := by rwa [mul_comm]
+  exact Nat.eq_of_mul_eq_mul_right card_pos this
+
 variable [H.Normal] [K.Normal] [Fintype G] (h : Disjoint H K) (h' : card G = card H * card K)
 
 #check bijective_iff_injective_and_card
@@ -282,6 +305,7 @@ variable [H.Normal] [K.Normal] [Fintype G] (h : Disjoint H K) (h' : card G = car
 
 def iso₁ [Fintype G] (h : Disjoint H K) (h' : card G = card H * card K) : K ≃* G⧸H := by
   sorry
+
 def iso₂ : G ≃* (G⧸K) × (G⧸H) := by
   sorry
 #check MulEquiv.prodCongr

@@ -6,9 +6,11 @@ set_option autoImplicit true
 
 def isMonoidHom₁ [Monoid G] [Monoid H] (f : G → H) : Prop :=
   f 1 = 1 ∧ ∀ g g', f (g * g') = f g * f g'
+
 structure isMonoidHom₂ [Monoid G] [Monoid H] (f : G → H) : Prop where
   map_one : f 1 = 1
   map_mul : ∀ g g', f (g * g') = f g * f g'
+
 example : Continuous (id : ℝ → ℝ) := continuous_id
 @[ext]
 structure MonoidHom₁ (G H : Type) [Monoid G] [Monoid H]  where
@@ -105,13 +107,26 @@ structure OrderPresHom (α β : Type) [LE α] [LE β] where
 structure OrderPresMonoidHom (M N : Type) [Monoid M] [LE M] [Monoid N] [LE N] extends
 MonoidHom₁ M N, OrderPresHom M N
 
-class OrderPresHomClass (F : Type) (α β : outParam Type) [LE α] [LE β]
+class OrderPresHomClass (F : Type) (α β : outParam Type) [LE α] [LE β] extends
+    FunLike F α (fun _  ↦ β ) where
+  le_of_le : ∀ (f : F), ∀ (a a' : α), a ≤ a' → f a ≤ f a'
 
 instance (α β : Type) [LE α] [LE β] : OrderPresHomClass (OrderPresHom α β) α β where
+  coe := OrderPresHom.toFun
+  coe_injective' := OrderPresHom.ext
+  le_of_le := OrderPresHom.le_of_le
 
 instance (α β : Type) [LE α] [Monoid α] [LE β] [Monoid β] :
     OrderPresHomClass (OrderPresMonoidHom α β) α β where
+  coe := fun f ↦ f.toOrderPresHom.toFun
+  coe_injective' := OrderPresMonoidHom.ext
+  le_of_le := fun f ↦ f.toOrderPresHom.le_of_le
+
+
 
 instance (α β : Type) [LE α] [Monoid α] [LE β] [Monoid β] :
-    MonoidHomClass₃ (OrderPresMonoidHom α β) α β
-  := sorry
+    MonoidHomClass₃ (OrderPresMonoidHom α β) α β where
+  coe := fun f ↦ f.toMonoidHom₁.toFun
+  coe_injective' := OrderPresMonoidHom.ext
+  map_one := fun f ↦ f.toMonoidHom₁.map_one
+  map_mul := fun f ↦ f.toMonoidHom₁.map_mul

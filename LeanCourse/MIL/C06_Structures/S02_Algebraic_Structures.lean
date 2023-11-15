@@ -174,6 +174,7 @@ instance hasOneGroup₂ {α : Type*} [Group₂ α] : One α :=
 instance hasInvGroup₂ {α : Type*} [Group₂ α] : Inv α :=
   ⟨Group₂.inv⟩
 
+example {α : Type*} [G : Group₂ α] : One.one = G.one := rfl
 
 section
 variable {α : Type*} (f g : Equiv.Perm α)
