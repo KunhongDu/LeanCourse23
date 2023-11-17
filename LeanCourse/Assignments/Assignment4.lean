@@ -20,7 +20,7 @@ local macro_rules | `($x ^ $y) => `(HPow.hPow $x $y)
   by replacing the proof (or part of the proof) by `sorry`.
 -/
 
-
+/-
 open Nat Finset BigOperators in
 lemma exercise4_1 (n : ℕ) :
     (∑ i in range (n + 1), i ^ 3 : ℚ) = (∑ i in range (n + 1), i : ℚ) ^ 2 := by
@@ -127,7 +127,7 @@ The first exercise is a preparation, and I've given you a skeleton of the proof 
 second exercise. Note how we do some computations in the integers, since the subtraction on `ℕ`
 is less well-behaved.
 (The converse is not true, because `89 ∣ 2 ^ 11 - 1`) -/
-
+-/
 open Nat in
 
 lemma n_ne_0_1_of_le_2 {n : ℕ} (h₁ : n ≠ 0) (h₂ : n ≠ 1) : 2 ≤ n := by
@@ -196,36 +196,91 @@ lemma exercise4_4 (n : ℕ) :
 
 #check Nat.le_trans
 
+
 lemma exercise4_5 (n : ℕ) (hn : Nat.Prime (2 ^ n - 1)) : Nat.Prime n := by
   by_contra h2n
   rw [exercise4_4] at h2n
   obtain rfl|rfl|⟨a, b, ha, hb, rfl⟩ := h2n
-  · norm_num at hn
-  · norm_num at hn
+  · simp at hn
+  · simp at hn
   have h : (2 : ℤ) ^ a - 1 ∣ (2 : ℤ) ^ (a * b) - 1
   · rw [← Int.modEq_zero_iff_dvd]
     calc (2 : ℤ) ^ (a * b) - 1
-        ≡ ((2 : ℤ) ^ a) ^ b - 1 [ZMOD (2 : ℤ) ^ a - 1] := by rw [pow_mul 2 a b]
-      _ ≡ (1 : ℤ) ^ b - 1 [ZMOD (2 : ℤ) ^ a - 1] := by sorry
-      _ ≡ 0 [ZMOD (2 : ℤ) ^ a - 1] := by rw [one_pow]; ring; rfl
-  have : 2 ≤ 2 := by norm_num
-  have h2 : 2 ^ 2 ≤ 2 ^ a := by exact (Nat.pow_le_iff_le_right this).mpr ha
-  have h3 : 1 ≤ 2 ^ a := by sorry
+        ≡ ((2 : ℤ) ^ a) ^ b - 1 [ZMOD (2 : ℤ) ^ a - 1] := by rw [pow_mul]
+      _ ≡ (1 : ℤ) ^ b - 1 [ZMOD (2 : ℤ) ^ a - 1] := by exact Int.ModEq.sub (Int.ModEq.pow b (Int.modEq_sub ((2 : ℤ) ^ a) 1)) rfl
+      _ ≡ 0 [ZMOD (2 : ℤ) ^ a - 1] := by simp
+  have h2 : 2 ^ 2 ≤ 2 ^ a := pow_le_pow (by norm_num) ha
+  have h3 : 1 ≤ 2 ^ a := Nat.one_le_two_pow a
   have h4 : 2 ^ a - 1 ≠ 1 := by zify; simp [h3]; linarith
   have h5 : 2 ^ a - 1 < 2 ^ (a * b) - 1 := by
     apply tsub_lt_tsub_right_of_le h3
-    sorry
-  have h6' : 2 ^ 0 ≤ 2 ^ (a * b) := by sorry
+    apply pow_lt_pow
+    norm_num
+    nth_rw 1 [← mul_one a]
+    apply (mul_lt_mul_left _ ).mpr
+    exact hb
+    exact Nat.zero_lt_of_lt ha
+  have h6' : 2 ^ 0 ≤ 2 ^ (a * b) := pow_le_pow (by norm_num) (Nat.zero_le (a * b))
   have h6 : 1 ≤ 2 ^ (a * b) := h6'
-  have h' : 2 ^ a - 1 ∣ 2 ^ (a * b) - 1
-  · norm_cast at h
+  have h' : 2 ^ a - 1 ∣ 2 ^ (a * b) - 1 := by norm_cast at h -- wow
   rw [Nat.prime_def_lt] at hn
-  sorry
+  exact h4 (hn.2 (2 ^ a  - 1) h5 h')
 
+example (a b c : ℝ) (h : a > 0) (h': b > c) : a * c < a * b := by exact (mul_lt_mul_left h).mpr h'
 
-#check Nat.pow_le_iff_le_right
-#check HMod
+example (n m : ℕ) (h : n ≡ 1 [ZMOD m]) : n + 1 ≡ 1 + 1 [ZMOD m] := by exact Int.ModEq.add h rfl
+
+example (m : ℕ) : m ≡ 1 [ZMOD m - 1] := by exact Int.modEq_sub m 1
+
+example (n m : ℕ) : m ^ 2 ≡ 1 ^ 2 [ZMOD m - 1] := Int.ModEq.pow 2 (Int.modEq_sub m 1)
+
+example (n n' m: ℕ) (h : n ≡ n' [ZMOD m]): n - 1 ≡ n' - 1 [ZMOD m] := by exact Int.ModEq.sub h rfl
+
+#check Int.ModEq.pow
+#check Int.modEq_sub
+#check Int.ModEq.sub
+#check pow_le_pow
+
 /- Here is another exercise about numbers. Make sure you find a simple proof on paper first.
 -/
 lemma exercise4_6 (a b : ℕ) (ha : 0 < a) (hb : 0 < b) :
-    ¬ IsSquare (a ^ 2 + b) ∨ ¬ IsSquare (b ^ 2 + a) := by sorry
+    ¬ IsSquare (a ^ 2 + b) ∨ ¬ IsSquare (b ^ 2 + a) := by
+  by_contra h
+  push_neg at h
+  simp [IsSquare] at h
+  obtain ⟨r, hr⟩ := h.1
+  obtain ⟨l, hl⟩ := h.2
+  have hr : (a : ℤ) ^ 2 + b = r * r := by norm_cast
+  have hl : (b : ℤ) ^ 2 + a = l * l := by norm_cast
+  have : ((a : ℤ) + b - 1) * (a - b) = (r + l) * (r - l) := by
+    calc ((a : ℤ) + b - 1) * (a - b) = (a : ℤ) ^ 2 + b - ((b : ℤ) ^ 2 + a) := by ring
+    _ = r ^ 2 - l ^ 2 := by rw [hr, hl, sq r, sq l]; norm_cast -- no push_cast??
+    _ = (r + l) * (r - l) := by push_cast; exact sq_sub_sq (r : ℤ) l
+  sorry
+
+
+lemma exercise4_6' (a b : ℕ) (ha : 0 < a) (hb : 0 < b) :
+    ¬ IsSquare (a ^ 2 + b) ∨ ¬ IsSquare (b ^ 2 + a) := by
+  have h1 : ∀ {a b : ℕ}, 0 < a → a ≤ b → ¬ IsSquare (b ^ 2 + a)
+  · intro a b ha hab ⟨c, hc⟩
+    rw [pow_two] at hc
+    have : b * b < c * c := by linarith
+    have : b < c := by exact?
+    have : c * c < (b + 1) * (b + 1) := by linarith
+    have : c < b + 1 := by exact?
+    exact?
+  obtain h|h := le_total a b
+  · exact .inr (h1 ha h)
+  · exact .inl (h1 hb h)
+
+
+#check ring
+
+example (a b c : ℕ) : (a + b - (1 : ℤ)) * (a - b) = a ^ 2 + b - (b ^ 2 + a) := by
+  rw [sub_mul]
+  ring
+
+/-
+invalid 'import' command, it must be used in the beginning of the file
+-/
+-- a???

@@ -121,7 +121,7 @@ example {X Y : Type*} (f : X → Y) : Filter Y → Filter X :=
 /- These form a *Galois connection* / adjunction -/
 example {X Y : Type*} (f : X → Y) (F : Filter X) (G : Filter Y) :
     Filter.map f F ≤ G ↔ F ≤ Filter.comap f G := by
-  exact?
+  exact map_le_iff_le_comap
 
 /- `Filter X` has an order that turns it into a complete lattice. The order is reverse inclusion: -/
 example {X : Type*} (F F' : Filter X) :
@@ -130,7 +130,7 @@ example {X : Type*} (F F' : Filter X) :
 
 /- This makes the principal filter `𝓟 : Set X → Filter X` monotone. -/
 example {X : Type*} : Monotone (𝓟 : Set X → Filter X) := by
-  exact?
+  exact monotone_principal
 
 
 
@@ -165,8 +165,11 @@ once! -/
 example {X Y Z : Type*} {F : Filter X} {G : Filter Y} {H : Filter Z}
     {f : X → Y} {g : Y → Z}
     (hf : Tendsto f F G) (hg : Tendsto g G H) :
-    Tendsto (g ∘ f) F H := by
-  sorry /- # Exercise -/
+    Tendsto (g ∘ f) F H :=
+  fun _ hS ↦ hf (hg hS)
+
+
+   /- # Exercise -/
 
 /-
 Filters also allow us to reason about things that are
@@ -199,7 +202,14 @@ variable {Y : Type*} [TopologicalSpace Y]
 
 
 example {ι : Type*} (s : ι → Set X) : interior (⋂ i, s i) ⊆ ⋂ i, interior (s i) := by
-  sorry
+  simp -- subset_iInter_iff
+  intro i
+  apply interior_mono
+  exact iInter_subset (fun i ↦ s i) i
+
+example {ι Z : Type*} (s : ι → Set Z) (a : Set Z): a ⊆ ⋂ i, s i ↔ ∀ i, a ⊆ s i :=
+by exact subset_iInter_iff
+
 
 /- A map between topological spaces is continuous if the
 preimages of open sets are open. -/
@@ -211,7 +221,7 @@ example {f : X → Y} :
 value `f x` tends to `f x₀` whenever `x` tends to `x₀`. -/
 example {f : X → Y} :
     Continuous f ↔ ∀ x₀, Tendsto f (𝓝 x₀) (𝓝 (f x₀)) := by
-  exact?
+  exact continuous_iff_continuousAt
 
 /- By definition, the right-hand side states that `f` is
 continuous at `x₀`. -/
@@ -231,8 +241,7 @@ example {x : X} {s : Set X} :
   mem_nhds_iff
 
 example {x : X} {s : Set X} (h : s ∈ 𝓝 x) : x ∈ s := by
-  sorry
-
+  exact mem_of_mem_nhds h
 
 
 
@@ -242,19 +251,18 @@ example {x : X} {s : Set X} (h : s ∈ 𝓝 x) : x ∈ s := by
   separatedness axioms. -/
 
 example : T0Space X ↔ Injective (𝓝 : X → Filter X) := by
-  exact?
+  exact t0Space_iff_nhds_injective X
 
 example : T1Space X ↔ ∀ x, IsClosed ({ x } : Set X) :=
-  ⟨by exact?, by exact?⟩
+  ⟨by exact fun a x ↦ T1Space.t1 x, by exact fun a ↦ { t1 := a }⟩
 
 example : T2Space X ↔
     ∀ x y : X, x ≠ y → Disjoint (𝓝 x) (𝓝 y) := by
-  exact?
+  exact t2Space_iff_disjoint_nhds
 
 example : RegularSpace X ↔ ∀ {s : Set X} {a},
     IsClosed s → a ∉ s → Disjoint (𝓝ˢ s) (𝓝 a) := by
-  exact?
-
+  exact regularSpace_iff X
 
 
 
@@ -269,7 +277,7 @@ example : RegularSpace X ↔ ∀ {s : Set X} {a},
 example {K : Set X} : IsCompact K ↔ ∀ {ι : Type _}
     (U : ι → Set X), (∀ i, IsOpen (U i)) → (K ⊆ ⋃ i, U i) →
     ∃ t : Finset ι, K ⊆ ⋃ i ∈ t, U i := by
-  exact?
+  exact isCompact_iff_finite_subcover
 
 /-
 This can also be reformulated using filters.
@@ -281,7 +289,7 @@ This can also be reformulated using filters.
 -/
 
 example (F : Filter X) : NeBot F ↔ F ≠ ⊥ := by
-  exact?
+  exact neBot_iff
 
 example {x : X} (F : Filter X) :
     ClusterPt x F ↔ NeBot (𝓝 x ⊓ F) := by
@@ -391,18 +399,49 @@ If you know category theory, this is an *adjunction* between orders
 -/
 @[simps]
 def cl (U : RegularOpens X) : Closeds X :=
-  ⟨closure U, sorry⟩
+  ⟨closure U, isClosed_closure⟩
 
 /- The interior of a closed set. You will have to prove yourself that it is regular open. -/
+
+example (C: Set X) (h: IsClosed C) : closure C =  C := by exact IsClosed.closure_eq h
+
+lemma int_cl_int_eq_int {C: Set X} (h: IsClosed C) : interior (closure (interior C)) = interior C := by
+    apply subset_antisymm
+    . apply interior_mono
+      nth_rw 2 [← IsClosed.closure_eq h]
+      apply closure_mono
+      exact interior_subset
+    . apply interior_maximal subset_closure isOpen_interior
+
+#check interior_maximal
+
 @[simps]
 def _root_.TopologicalSpace.Closeds.int (C : Closeds X) : RegularOpens X :=
-  ⟨interior C, sorry, sorry⟩
+  ⟨interior C, isOpen_interior, int_cl_int_eq_int C.2⟩
+
 
 /- Now let's show the relation between these two operations. -/
 lemma cl_le_iff {U : RegularOpens X} {C : Closeds X} :
-    U.cl ≤ C ↔ U ≤ C.int := by sorry
+    U.cl ≤ C ↔ U ≤ C.int := by
+    constructor
+    . intro h
+      apply interior_mono at h
+      simp at h -- rw does not work
+      exact h
+    . intro h
+      apply closure_mono at h
+      apply Subset.trans h
+      simp
+      nth_rw 2 [← IsClosed.closure_eq C.closed] -- only work after simp
+      apply closure_mono
+      exact interior_subset
 
-@[simp] lemma cl_int : U.cl.int = U := by sorry
+example (C D E: Set X) (h : C ⊆ D) (h' : D ⊆ E) : C ⊆ E := by exact Subset.trans h h'
+
+
+@[simp] lemma cl_int : U.cl.int = U := by
+  ext
+  simp -- ah??? why???
 
 /- This gives us a GaloisCoinsertion. -/
 
@@ -414,6 +453,7 @@ def gi : GaloisCoinsertion cl (fun C : Closeds X ↦ C.int) where
 
 /- It is now a general theorem that we can lift the complete lattice structure from `Closeds X`
 to `RegularOpens X`. The lemmas below give the definitions of the lattice operations. -/
+--
 
 instance completeLattice : CompleteLattice (RegularOpens X) :=
   GaloisCoinsertion.liftCompleteLattice gi
@@ -451,24 +491,123 @@ instance completeLattice : CompleteLattice (RegularOpens X) :=
   have : sSup U = (sSup (cl '' U)).int := rfl
   simp [this]
 
+-- ??? do we have `sSup = int(cl ∪ U_i)`???
+
+
+--example (A B : Set X) : interior A ∩ interior B = interior (A ∩ B) := by exact interior_inter.symm
+
+-- example (A B : Set X) : closure A ∪ closure B = closure (A ∪ B) := closure_union.symm
+
+example (A B : Set X) (h : IsOpen A) : A ∩ closure B ⊆ closure (A ∩ B) := by exact IsOpen.inter_closure h
+
+example (τ : Type*) (A B : Set τ) [CompleteLattice τ](S : Set τ) : ⨆ V ∈ S, V = sSup S := by exact sSup_eq_iSup.symm
+
+
+lemma temp_lemma (U : RegularOpens X) (S : Set (RegularOpens X)) : ⨆ V ∈ S, U ⊓ V = sSup ((fun V ↦ U ⊓ V)'' S) := by sorry
+
+example (A : Set X) (S : Set (RegularOpens X)) : ⨆ V ∈ S, V = sSup S:= by exact sSup_eq_iSup.symm
+
+example [Nonempty X] (a : X) : (range fun (x : X) ↦ a) = {a} := by simp
+
+
+lemma inf_sSup_le_iSup_inf_RegularOpens (U : RegularOpens X) (S : Set (RegularOpens X)) : U ⊓ sSup S ≤ ⨆ V ∈ S, U ⊓ V := by
+  have h1 : (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) = U ⊓ sSup S:= by simp
+  have h2 : interior (closure (⋃ V ∈ S, closure ((U : Set X) ∩ V))) = sSup {U ⊓ V | V ∈ S} := by
+    simp
+
+  /-
+  (deterministic) timeout at 'isDefEq', maximum number of heartbeats (200000) has been reached (use 'set_option maxHeartbeats <num>' to set the limit)
+  -/
+  have : sSup {U ⊓ V | V ∈ S} = ⨆ V ∈ S, U ⊓ V := by
+    -- by_cases hSemp : Nonempty S
+    rw [iSup]
+    congr
+    ext W
+    constructor
+    . simp
+      intro w hS hS'
+      use w
+      rw [hS']
+      rw [iSup]
+      have : Nonempty (w ∈ S) := by exact nonempty_Prop.mpr hS
+      have : (range fun h : (w ∈ S) ↦ W ) = {W} := by simp
+      simp [this]
+    . sorry
+  have : sSup {U ⊓ V | V ∈ S} = ⨆ W ∈ {U ⊓ V | V ∈ S}, W := sSup_eq_iSup
+
+  have : ⨆ W ∈ {U ⊓ V | V ∈ S}, W = ⨆ V ∈ S, U ⊓ V := by
+    rw [iSup, iSup]
+    congr
+    sorry
+
+
+  -- have : (fun V : RegularOpens X ↦ U ⊓ V)'' S = {U ⊓ V | V ∈ S} := by
+  --  ext W
+  --  simp [mem_image]
+
+  have h3 : (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) = interior (closure (⋃ V ∈ S, closure (U ∩ V))) := by sorry
+  rw [le_def, ← h1]
+
+
+
+
+
+/-
 /- We still have to prove that this gives a distributive lattice.
 Note: these are hard; you might want to do the next exercises first. -/
 instance completeDistribLattice : CompleteDistribLattice (RegularOpens X) :=
   { completeLattice with
-    inf_sSup_le_iSup_inf := by sorry
+    inf_sSup_le_iSup_inf := by intro
     iInf_sup_le_sup_sInf := by sorry
-    }
+}
 
 
-instance : HasCompl (RegularOpens X) := sorry
+instance : HasCompl (RegularOpens X) := {
+  compl := fun U => ⟨interior (U.1)ᶜ, isOpen_interior, int_cl_int_eq_int (isClosed_compl_iff.mpr U.2)⟩
+}
 
+example (A : Set X) (h : IsOpen A) : IsClosed Aᶜ := by exact isClosed_compl_iff.mpr h
+
+-- instance : HasCompl (RegularOpens X) where
+--  compl U := U
 
 @[simp]
-lemma coe_compl (U : RegularOpens X) : ↑Uᶜ = interior (U : Set X)ᶜ := by sorry
+lemma coe_compl (U : RegularOpens X) : ↑Uᶜ = interior (U : Set X)ᶜ := by rfl
+-- ahhh???
+
+-- example (C : Set X) : C ∩ Cᶜ = ∅ := by exact inter_compl_self C
+example (C : Set X) : C ∪ Cᶜ = univ := by exact union_compl_self C
+
+example (U: Set X) (h: univ ⊆ U): U = univ := by exact univ_subset_iff.mp h
+
+example (C D E: Set X) (h: C ⊆ D): C ∪ E ⊆ D ∪ E := by exact union_subset_union_left E h
+
+
+lemma myLemma {U: Set X} : interior (closure U ∪ Uᶜ) = univ := by
+  rw [univ_subset_iff.symm]
+  calc univ = interior univ := interior_univ.symm
+  _ = interior (U ∪ Uᶜ) := by rw [union_compl_self U]
+  _ ⊆ interior (closure U ∪ Uᶜ) := interior_mono (union_subset_union_left (Uᶜ) subset_closure)
 
 
 instance : CompleteBooleanAlgebra (RegularOpens X) :=
   { completeDistribLattice,
     inferInstanceAs (DistribLattice (RegularOpens X)) with
-    inf_compl_le_bot := by sorry
-    top_le_sup_compl := by sorry }
+    inf_compl_le_bot := by
+      intro U
+      simp
+      ext x
+      simp
+      exact fun h => subset_closure h
+    top_le_sup_compl := by
+      intro U
+      simp
+      ext x
+      simp
+      have : x ∈ interior (closure U.1 ∪ (U.1)ᶜ) -- emmm rw does not work without surprise, need to do this (flip the proof???)
+      . rw [myLemma]
+        trivial
+      simp at this
+      exact this
+  }
+-/
