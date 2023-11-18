@@ -35,7 +35,7 @@ variable (f : ℝ → ℝ) (x : ℝ) in
 Often it is nicer to use the predicate `HasDerivAt f y x`, which states that `f`
 is differentiable and `f'(x) = y`. -/
 
-example (x : ℝ) : HasDerivAt Real.sin (Real.cos x) x := by exact?
+example (x : ℝ) : HasDerivAt Real.sin (Real.cos x) x := by exact hasDerivAt_sin x
 
 /- We can also specify that a function has a derivative without specifying its
 derivative. -/
@@ -52,7 +52,11 @@ example (x : ℝ) : DifferentiableAt ℝ sin x :=
 
 example (x : ℝ) :
     HasDerivAt (fun x ↦ Real.cos x + Real.sin x)
-    (Real.cos x - Real.sin x) x := by sorry
+    (Real.cos x - Real.sin x) x := by
+      rw [sub_eq_neg_add]
+      apply HasDerivAt.add
+      exact hasDerivAt_cos x
+      exact hasDerivAt_sin x
 
 
 
@@ -63,7 +67,8 @@ example (x : ℝ) :
 (normed) vector space. -/
 
 example (x : ℝ) : deriv (fun x ↦ ((Real.cos x) ^ 2, (Real.sin x) ^ 2)) x =
-    (- 2 * Real.cos x * Real.sin x, 2 * Real.sin x * Real.cos x) := by sorry
+    (- 2 * Real.cos x * Real.sin x, 2 * Real.sin x * Real.cos x) := by
+    sorry
 
 /-
 Lean has the following names for intervals
@@ -229,21 +234,70 @@ end NormedSpace
 /- # Exercises -/
 
 example (x : ℝ) :
-    deriv (fun x ↦ Real.exp (x ^ 2)) x = 2 * x * Real.exp (x ^ 2) := by sorry
+    deriv (fun x ↦ Real.exp (x ^ 2)) x = 2 * x * Real.exp (x ^ 2) := by
+      simp
+      ring
 
 /- If you have a continuous injective function `ℝ → ℝ` then `f` is monotone or antitone. This is a possible first step in proving that result.
 Prove this by contradiction using the intermediate value theorem. -/
+example {f : ℝ → ℝ} (hf : Continuous f) {a b x : ℝ} (hab : a ≤ b) : ContinuousOn f (Icc a b) := by exact Continuous.continuousOn hf
+
+example {f : ℝ → ℝ} (hf : Continuous f) {a b x : ℝ} (hab : a ≤ b) (h' : x ∈ Icc a b) : f x ∈ f '' Icc a b := by exact mem_image_of_mem f h'
+
+example {a b x : ℝ} (hab : a ≤ b) (hx : x < a) :  x ∉ Icc a b := by exact not_mem_Icc_of_lt hx
+
+example {a b x : ℝ} (hab : a ≤ b) (hx : x ∈ Icc a b) :  x ≤ b := by exact hx.2
+
+example {a b x : ℝ} {U V : Set ℝ} (ha : a ∉ V) (hUV : U ⊆ V) : a ∉ U := by exact not_mem_subset hUV ha
+
+example {a b x : ℝ} (hab : a < b) :  a ≤ b  := by exact LT.lt.le hab
+
 example {f : ℝ → ℝ} (hf : Continuous f) (h2f : Injective f) {a b x : ℝ}
-    (hab : a ≤ b) (h2ab : f a < f b) (hx : x ∈ Icc a b) : f a ≤ f x := by sorry
+    (hab : a ≤ b) (h2ab : f a < f b) (hx : x ∈ Icc a b) : f a ≤ f x := by
+      by_contra h
+      push_neg at h
+      -- have : Icc (f a) (f b) ⊆ f '' Icc a b := intermediate_value_Icc hab (Continuous.continuousOn hf)
+      -- specialize this (mem_image_of_mem f hx)
+      have : Icc (f x) (f b) ⊆ f '' Icc x b := intermediate_value_Icc hx.2 (Continuous.continuousOn hf)
+      specialize this ⟨LT.lt.le h, LT.lt.le h2ab⟩
+      obtain ⟨x', hx'1, hx'2⟩ := this
+      specialize h2f hx'2
+      rw [h2f] at hx'1
+      have : x = a := by apply le_antisymm hx'1.1 hx.1
+      rw [this] at h
+      linarith
 
 
 variable {𝕜 : Type*} [NontriviallyNormedField 𝕜]
   {E : Type*} [NormedAddCommGroup E] [NormedSpace 𝕜 E]
-  {n : ℕ∞} in
+  {n : ℕ∞}
+
+example (f g : E → E) (hf : ContDiff 𝕜 n f) (hg : ContDiff 𝕜 n g) : ContDiff 𝕜 n (fun z : E × E ↦ f z.1) := by exact ContDiff.fst' hf
+
+example (f g : E → E) (hf : ContDiff 𝕜 n f) (hg : ContDiff 𝕜 n g) : ContDiff 𝕜 n (f ∘ g) := by exact ContDiff.comp hf hg
+
+example (L : E →L[𝕜] E →L[𝕜] E) :ContDiff 𝕜 n (fun z : E × E ↦ L z.1 z.2) := by
+ apply IsBoundedBilinearMap.contDiff
+ exact ContinuousLinearMap.isBoundedBilinearMap L
+
 /- In this exercise you should combine the right lemmas from the library, in particular `IsBoundedBilinearMap.contDiff`. -/
 example (L : E →L[𝕜] E →L[𝕜] E) (f g : E → E) (hf : ContDiff 𝕜 n f)
     (hg : ContDiff 𝕜 n g) :
-    ContDiff 𝕜 n (fun z : E × E ↦ L (f z.1) (g z.2)) := by sorry
+    ContDiff 𝕜 n (fun z : E × E ↦ L (f z.1) (g z.2)) := by
+    have : (fun z : E × E ↦ L (f z.1) (g z.2)) = (fun z : E × E ↦ L z.1 z.2) ∘ (fun z : E × E ↦ (f z.1, g z.2)) := by ext; simp;
+    rw [this]
+    apply ContDiff.comp _ _
+    . apply IsBoundedBilinearMap.contDiff
+      exact ContinuousLinearMap.isBoundedBilinearMap L
+    . apply ContDiff.prod
+      . exact ContDiff.fst' hf
+      . exact ContDiff.snd' hg
 
 
+
+#check ContDiff.prod
+#check ContDiff.prod_map
+#check IsBoundedBilinearMap.contDiff
+#check IsBoundedBilinearMap
+#check ContDiff.comp
 /- If you finish these exercises, continue with the exercises of lecture 11. -/

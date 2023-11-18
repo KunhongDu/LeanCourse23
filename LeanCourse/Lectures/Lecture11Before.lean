@@ -509,59 +509,76 @@ example (A : Set X) (S : Set (RegularOpens X)) : ⨆ V ∈ S, V = sSup S:= by ex
 
 example [Nonempty X] (a : X) : (range fun (x : X) ↦ a) = {a} := by simp
 
+example (U : Set X) (h : IsOpen U) : U = interior U := by exact (IsOpen.interior_eq h).symm
+
+example {Z : Type*} (a : Set Z) (f : ℕ → Set Z): a ∩ (⋃ i , f i) = ⋃ i, a ∩ f i := by exact inter_iUnion a fun i ↦ f i
+
+#check inter_iUnion₂
+#check iUnion
+
+example {Z : Type*} (a : Set Z) (C : Set (Set Z)) (f : Set Z → Set Z): a ∩ ⋃ c ∈ C, f c = ⋃ c ∈ C, a ∩ f c := by exact inter_iUnion₂ a fun i j ↦ f i
+
+example {Z W: Type*} (f g : W → Set Z) (H : ∀ w, f w ⊆ g w) : ⋃ w, f w ⊆  ⋃ w, g w := by exact iUnion_mono H
 
 lemma inf_sSup_le_iSup_inf_RegularOpens (U : RegularOpens X) (S : Set (RegularOpens X)) : U ⊓ sSup S ≤ ⨆ V ∈ S, U ⊓ V := by
   have h1 : (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) = U ⊓ sSup S:= by simp
+
   have h2 : interior (closure (⋃ V ∈ S, closure ((U : Set X) ∩ V))) = sSup {U ⊓ V | V ∈ S} := by
     simp
 
-  /-
-  (deterministic) timeout at 'isDefEq', maximum number of heartbeats (200000) has been reached (use 'set_option maxHeartbeats <num>' to set the limit)
-  -/
-  have : sSup {U ⊓ V | V ∈ S} = ⨆ V ∈ S, U ⊓ V := by
-    -- by_cases hSemp : Nonempty S
-    rw [iSup]
-    congr
+  have h3 : sSup {U ⊓ V | V ∈ S} = ⨆ V ∈ S, U ⊓ V := by
+    rw [← sSup_image]
     ext W
-    constructor
-    . simp
-      intro w hS hS'
-      use w
-      rw [hS']
-      rw [iSup]
-      have : Nonempty (w ∈ S) := by exact nonempty_Prop.mpr hS
-      have : (range fun h : (w ∈ S) ↦ W ) = {W} := by simp
-      simp [this]
-    . sorry
-  have : sSup {U ⊓ V | V ∈ S} = ⨆ W ∈ {U ⊓ V | V ∈ S}, W := sSup_eq_iSup
+    simp
 
-  have : ⨆ W ∈ {U ⊓ V | V ∈ S}, W = ⨆ V ∈ S, U ⊓ V := by
-    rw [iSup, iSup]
-    congr
-    sorry
+  have h4 : (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) ⊆ interior (closure (⋃ V ∈ S, closure (U ∩ V))) := by
+    calc (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) = U.1 ∩ interior (closure (⋃ V ∈ S, closure V)) := by simp
+    _ = interior U.1 ∩ interior (closure (⋃ V ∈ S, closure V)) := by rw [IsOpen.interior_eq U.2]
+    _ = interior (U.1 ∩ closure (⋃ V ∈ S, closure V)) := interior_inter.symm
+    _ ⊆ interior (closure (U.1 ∩ (⋃ V ∈ S, closure V))) := interior_mono (IsOpen.inter_closure U.2)
+    _ = interior (closure (⋃ V ∈ S, U.1 ∩ closure V)) := by
+      have : U.1 ∩ (⋃ V ∈ S, closure V) = ⋃ V ∈ S, U.1 ∩ closure V := by
+        ext x
+        simp
+      rw [this]
+    _ ⊆ interior (closure (⋃ V ∈ S, closure (U.1 ∩ V))) := by
+      apply interior_mono
+      apply closure_mono
+      intro V
+      simp
+      intro hV x hx hVx
+      use x
+      exact ⟨hx, IsOpen.inter_closure U.2 ⟨hV, hVx⟩⟩
+    _ = interior (closure (⋃ V ∈ S, closure (U ∩ V))) := by simp
+
+  rw [le_def, ← h1, ← h3, ← h2]
+  exact h4
+
+lemma iInf_sup_le_sup_sInf_RegularOpens (U : RegularOpens X) (S : Set (RegularOpens X)) : ⨅ V ∈ S, U ⊔ V ≤ U ⊔ sInf S := by
+  have aux : ⨅ V ∈ S, U ⊔ V = sInf {U ⊔ V | V ∈ S} := by
+    rw [← sInf_image]
+    ext
+    simp
 
 
-  -- have : (fun V : RegularOpens X ↦ U ⊓ V)'' S = {U ⊓ V | V ∈ S} := by
-  --  ext W
-  --  simp [mem_image]
 
-  have h3 : (U : Set X) ∩ interior (closure (⋃ V ∈ S, closure V)) = interior (closure (⋃ V ∈ S, closure (U ∩ V))) := by sorry
-  rw [le_def, ← h1]
-
+  rw [le_def]
+  simp
+  sorry
+  -- intro x hx
 
 
 
 
-/-
 /- We still have to prove that this gives a distributive lattice.
 Note: these are hard; you might want to do the next exercises first. -/
 instance completeDistribLattice : CompleteDistribLattice (RegularOpens X) :=
   { completeLattice with
-    inf_sSup_le_iSup_inf := by intro
-    iInf_sup_le_sup_sInf := by sorry
+    inf_sSup_le_iSup_inf := inf_sSup_le_iSup_inf_RegularOpens
+    iInf_sup_le_sup_sInf := iInf_sup_le_sup_sInf_RegularOpens
 }
 
-
+/-
 instance : HasCompl (RegularOpens X) := {
   compl := fun U => ⟨interior (U.1)ᶜ, isOpen_interior, int_cl_int_eq_int (isClosed_compl_iff.mpr U.2)⟩
 }
