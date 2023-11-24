@@ -28,9 +28,12 @@ def toPair (α : Type*) [TopologicalSpace α]: TopPair α Empty where
   map := Empty.rec
   isEmbedding := by simp [embedding_iff, inducing_iff, Function.Injective]
 
+def RangeSub {α β γ : Type*} (f : α → γ) (g : β → γ) : Prop :=
+  Set.range f ⊆ Set.range g
+
 @[ext]
 class PairMap (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMap α α' where
-  image_in : Set.range (toFun ∘ P₁.map) ⊆ Set.range P₂.map
+  image_sub : RangeSub (toFun ∘ P₁.map) P₂.map
 
 #check PairMap.toContinuousMap
 
@@ -48,6 +51,7 @@ instance : ContinuousMapClass (PairMap P P') α α' where
     ext1
     exact h
   map_continuous := fun f ↦ f.continuous
+
 /-
 example (f : α → β) (g : β → β) : Set.range (g ∘ f) ⊆ Set.range (g) := by exact Set.range_comp_subset_range f g
 
@@ -58,19 +62,19 @@ protected def id : PairMap P P where
   toFun := id
   -- continuous_toFun := continuous_id
   -- I don't need this field why?
-  image_in := by intro a ha; obtain ⟨b, hb⟩ := ha; use b; exact hb
+  image_sub := by intro a ha; obtain ⟨b, hb⟩ := ha; use b; exact hb
 
 open Set in
 protected def comp (f : PairMap P' P'') (g : PairMap P P') : PairMap P P'' where
   toFun := f ∘ g
-  image_in := by
+  image_sub := by
     simp
     calc range ((↑f ∘ ↑g) ∘ TopPair.map) = range (↑f ∘ (↑g ∘ P.map)) := rfl
     _ ⊆ range (↑f ∘ P'.map) := by
       rw [range_comp, range_comp f]
       apply Set.image_subset
-      exact g.image_in
-    _ ⊆ range (P''.map) := f.image_in
+      exact g.image_sub
+    _ ⊆ range (P''.map) := f.image_sub
 
 #check Set.range
 #check PairMap.comp
@@ -120,10 +124,9 @@ instance TopPairCategory : Category TopPairCat where
 -/
 variable (R : Type*) [Ring R]
 
-structure ExOrdHomology extends Functor TopPairCat (ModuleCat R) where
-  h
+-- structure ExOrdHomology extends Functor TopPairCat (ModuleCat R) where
 
-#check Homotopy
+
 #check ModuleCat
 #check continuous_id
 -- #check SemilinearMapClass
