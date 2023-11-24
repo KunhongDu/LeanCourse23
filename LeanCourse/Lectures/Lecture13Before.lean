@@ -33,7 +33,9 @@ example {a b : ℝ} (h : (0 : ℝ) ∉ [[a, b]]) : ∫ x in a..b, 1 / x = log (b
   integral_one_div h
 
 example (a b : ℝ) : ∫ x in a..b, exp (x + 3) = exp (b + 3) - exp (a + 3) := by
-  sorry
+  rw [intervalIntegral.integral_comp_add_right]
+  exact integral_exp
+
 
 
 /- We have the fundamental theorem of calculus in Lean. -/
@@ -53,10 +55,14 @@ example (a b : ℝ) : ∫ x in a..b, 2 * x * exp (x ^ 2) =
   have h1 : ∀ x ∈ [[a, b]], HasDerivAt
     (fun x ↦ exp (x ^ 2))
     (2 * x * exp (x ^ 2)) x
-  · sorry
+  · intro x hx
+    rw [show 2 * x * exp (x ^ 2) = exp (x ^ 2) * (2 * x) by ring]
+    apply HasDerivAt.comp (fun x ↦ x ^ 2) exp
+    sorry
   have h2 : IntervalIntegrable (fun x ↦ 2 * x * exp (x ^ 2)) volume a b
-  · sorry
-  sorry
+  · apply Continuous.intervalIntegrable
+    continuity
+  exact intervalIntegral.integral_eq_sub_of_hasDerivAt h1 h2
 
 
 /- If you `open Convolution`, you get the convolution of two functions. -/
@@ -134,6 +140,8 @@ example : BorelSpace ℝ := by infer_instance
 Remark: `rw` will not rewrite inside a binder (like `fun x`, `∃ x`, `∫ x` or `∀ᶠ x`). Use
 `simp_rw`, `simp only` or `unfold` instead. -/
 example : ∀ᵐ x : ℝ, Irrational x := by
+  -- simp only [Irrational]
+  unfold Irrational
   sorry
 
 
@@ -148,7 +156,9 @@ example : ∀ᵐ x : ℝ, Irrational x := by
 #check Integrable
 
 example : ¬ Integrable (fun x ↦ 1 : ℝ → ℝ) := by
-  sorry
+  intro h
+  rw [integrable_const_iff] at h
+  simp at h
 
 
 
@@ -209,7 +219,7 @@ example {s : Set ℝ} {f f' : ℝ → ℝ}
 
 
 /- Here is a computation using the change of variables theorem. -/
-example (f : ℝ → ℝ) (s : Set ℝ) (hs : MeasurableSet s) :
+example (f : ℝ → ℝ):
     ∫ x in (0)..π, sin x * f (cos x) = ∫ y in (-1)..1, f y := by
   rw [intervalIntegral.integral_of_le (by positivity),
       intervalIntegral.integral_of_le (by norm_num)]
