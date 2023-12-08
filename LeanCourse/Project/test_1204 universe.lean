@@ -1,14 +1,4 @@
-/-
-  Want to formalize the Eilenberg–Steenrod axioms and show some easy consequences.
-
-  Would use
-  1. category
-  2. functors
-  3. category of pairs of top spaces
-  4. category of R-mod
-  5. homotopy
-  6. exact sequence
--/-- solving universe problem
+-- solving universe problem
 
 import Mathlib.Topology.Category.TopCat.Basic
 import Mathlib.Topology.Homotopy.Basic
@@ -16,19 +6,18 @@ import Mathlib.Topology.Homotopy.Equiv
 import Mathlib.CategoryTheory.ConcreteCategory.BundledHom
 import Mathlib.Algebra.Category.ModuleCat.Abelian
 import Mathlib.Algebra.Homology.Exact
-import Mathlib.AlgebraicTopology.TopologicalSimplex
 noncomputable section
 
 #check TopologicalSpace
 
 universe u v w
--- variable {α β α' β' α'' β'': Type}
+-- variable {α β α' β' α'' β'': Type*}
 -- variable [TopologicalSpace α]  [TopologicalSpace β]
 
 @[ext]
 structure TopPair where
-  total : Type
-  sub : Type
+  total : Type*
+  sub : Type*
   isTotalTopologicalSpace : TopologicalSpace total
   isSubTopologicalSpace : TopologicalSpace sub
   map : sub  → total
@@ -38,7 +27,7 @@ attribute [instance] TopPair.isTotalTopologicalSpace TopPair.isSubTopologicalSpa
 
 /-- ` toPair ` sends a topological space ` α ` to a topological pair ` (α, ∅) `
 -/
-def toPair (α : Type) [TopologicalSpace α]: TopPair where
+def toPair (α : Type u) [TopologicalSpace α]: TopPair where
   total := α
   sub := Empty
   isTotalTopologicalSpace := by infer_instance
@@ -47,13 +36,13 @@ def toPair (α : Type) [TopologicalSpace α]: TopPair where
   isEmbedding := by simp [embedding_iff, inducing_iff, Function.Injective]
 
 @[simp]
-lemma to_pair_total_eq_self {α : Type} [TopologicalSpace α]: (toPair α).total = α := rfl
+lemma to_pair_total_eq_self {α : Type*} [TopologicalSpace α]: (toPair α).total = α := rfl
 
 @[simp]
-lemma to_pair_sub_eq_empty {α : Type} [TopologicalSpace α] : (toPair α).sub = Empty := rfl
+lemma to_pair_sub_eq_empty {α : Type*} [TopologicalSpace α] : (toPair α).sub = Empty := rfl
 
 @[simp]
-lemma to_pair_map_empty_rec {α : Type} [TopologicalSpace α]: (toPair α).map = Empty.rec := rfl
+lemma to_pair_map_empty_rec {α : Type*} [TopologicalSpace α]: (toPair α).map = Empty.rec := rfl
 
 @[ext]
 structure PairMap (P₁ : TopPair) (P₂ : TopPair) extends C(P₁.total, P₂.total) where
@@ -81,7 +70,7 @@ lemma sub_map_unique {f f' : PairMap P₁ P₂} (h : f.toFun = f'.toFun) : f.sub
   apply P₂.isEmbedding.inj this
 
 /-
-class PairMapClass (F : Type) {α β α' β' : Type} [TopologicalSpace α] [TopologicalSpace β] [TopologicalSpace α'] [TopologicalSpace β'] (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMapClass F α α'
+class PairMapClass (F : Type*) {α β α' β' : Type*} [TopologicalSpace α] [TopologicalSpace β] [TopologicalSpace α'] [TopologicalSpace β'] (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMapClass F α α'
 -/
 
 instance : ContinuousMapClass (PairMap P₁ P₂) P₁.total P₂.total where
@@ -187,7 +176,7 @@ theorem comp_assoc {P₄ : TopPair} (f : PairMap P₁ P₂) (g : PairMap P₂ P�
 
 -- toPair induces a PairMap
 
-def toPairMap {α β : Type} [TopologicalSpace α] [TopologicalSpace β] (f : C(α, β)): PairMap (toPair α) (toPair β) where
+def toPairMap {α β : Type*} [TopologicalSpace α] [TopologicalSpace β] (f : C(α, β)): PairMap (toPair α) (toPair β) where
   toFun := f
   continuous_toFun := by continuity
   sub_map := Empty.rec
@@ -369,50 +358,14 @@ variable {P : TopPair} {P' : TopPair}
 open PairMap
 
 open CategoryTheory in
-
-/-
-  Homotopy invariance
--/
-
-structure HomotopyInvariant {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
-  homotopy_inv : ∀ P P',  ∀ f f' : (P ⟶ P'), PairHomotopic f f' → (F.map f = F.map f')
-
-/-
-  Excisive
--/
-
-structure Excisive {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
-  excisive : ∀ P, ∀ U : Set (P.sub), IsIso (F.map (ExcisionInc P U))
-
-/-
-  additivity
--/
-
-#check @Sigma.mk
-#check instTopologicalSpaceSigma
-
-
-def SigmaTopPair {ι : Type} (P : ι → TopPair) : TopPair where
-  total := Σ i, (P i).total
-  sub :=  Σ i, (P i).sub
-  isTotalTopologicalSpace := by infer_instance
-  isSubTopologicalSpace := by infer_instance
-  map := Sigma.map id (fun i a ↦ (@TopPair.map (P i)) a)
-  isEmbedding := sorry
-
-def SigmaTopPairInc {ι : Type} (P : ι → TopPair) (i : ι) : PairMap (P i) (SigmaTopPair P) where
-  toFun := fun a ↦ ⟨i, a⟩
-  continuous_toFun := continuous_iSup_rng continuous_coinduced_rng
-  sub_map := fun a ↦ ⟨i, a⟩
-  comm := sorry
-
-structure Additive {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
-  additivity {ι : Type} (P : ι → TopPair) (i : ι): IsIso (F.map (SigmaTopPairInc P i))
+structure HomotopyInvExcisionFunctor (R : Type*) [Ring R] extends Functor TopPair (ModuleCat R) where
+  homotopy_inv : ∀ P P',  ∀ f f' : (P ⟶ P'), PairHomotopic f f' → (map f = map f')
+  excision : ∀ P, ∀ U : Set (P.sub), IsIso (map (ExcisionInc P U))
 
 -- the long exact sequence consisting of three parts
 
 /-
-instance (R: Type) [Ring R] : Coe (HomotopyInvExcisionFunctor R) (Functor TopPair (ModuleCat R)) where
+instance (R: Type*) [Ring R] : Coe (HomotopyInvExcisionFunctor R) (Functor TopPair (ModuleCat R)) where
   coe := HomotopyInvExcisionFunctor.toFunctor
 -/
 
@@ -441,9 +394,9 @@ def PairToSubFunctor : TopPair ⥤ TopPair where
   map_comp := by simp
 
 #check ModuleCat R
--- example (α β: Type) (h : IsEmpty α) : α → β := h.elim
+-- example (α β: Type*) (h : IsEmpty α) : α → β := h.elim
 
--- abbrev BoundaryOp.{u₁, u₂, u₃, u₄} {R : Type* u₁} [Ring R] (F : TopPair.{u₂, u₃} ⥤ ModuleCat.{u₄} R) (G : TopPair.{u₃, 0} ⥤ ModuleCat.{u₄} R) := NatTrans F (PairToSubFunctor ⋙ G)
+-- abbrev BoundaryOp.{u₁, u₂, u₃, u₄} {R : Type u₁} [Ring R] (F : TopPair.{u₂, u₃} ⥤ ModuleCat.{u₄} R) (G : TopPair.{u₃, 0} ⥤ ModuleCat.{u₄} R) := NatTrans F (PairToSubFunctor ⋙ G)
 
 abbrev BoundaryOp (F : TopPair ⥤ ModuleCat R) (G : TopPair ⥤ ModuleCat R) := NatTrans F (PairToSubFunctor ⋙ G)
 
@@ -459,61 +412,90 @@ structure BoundInjExact {F G : TopPair ⥤ ModuleCat R} (bd :BoundaryOp F G) (P 
 /-
 define a coecion from HomotopyInvExcisionFunctor to Functor
 -/
+instance (α : Type*) [Unique α]: TopologicalSpace α := TopologicalSpace.generateFrom ⊤
+
+structure ExOrdHomology.{u₁, u₂} (R : Type u₁) [Ring R] where
+  homology (n : ℤ): HomotopyInvExcisionFunctor R
+  dimension (n : ℤ) (α : Type u₂) [Unique α] : Nontrivial ((homology n).obj (toPair α)) → n = 0
+  boundary_op (n : ℤ) : BoundaryOp (homology n).toFunctor (homology (n-1)).toFunctor
+
+
+
+#check ℕ
 /-
-instance (α : Type) [Unique α]: TopologicalSpace α := TopologicalSpace.generateFrom ⊤
--/
-structure ExOrdHomology (R : Type*) [Ring R] where
-  homology (n : ℤ): TopPair ⥤ ModuleCat R
-  homotopy_inv : ∀ n,  HomotopyInvariant (homology n)
-  excisive : ∀ n, Excisive (homology n)
-  additive : ∀ n, Additive (homology n)
-  boundary_op (n : ℤ) : BoundaryOp (homology n) (homology (n-1))
-  exact_seq_inj_proj : ∀ n, ∀ P, InjProjExact (homology n) P
+  boundary_op (n : ℤ) : BoundaryOp (homology n).toFunctor (homology (n-1)).toFunctor
+  exact_seq_inj_proj : ∀ n, ∀ P, InjProjExact (homology n).toFunctor P
   exact_seq_proj_bound : ∀ n, ∀ P, ProjBoundExact (boundary_op n) P
   exact_seq_bound_inj : ∀ n, ∀ P, BoundInjExact (boundary_op n) P
 
 
+variable {F : HomotopyInvExcisionFunctor R} (α : Type*) [Unique α] {H : ExOrdHomology R}
+
+instance (α : Type*) [Unique α]: TopologicalSpace α := TopologicalSpace.generateFrom ⊤
+
+#check (H.homology 0).obj (toPair α)
+
 structure OrdHomology (R : Type*) [Ring R] extends ExOrdHomology R where
-  dimension (n : ℤ) (α : Type) [Unique α] [TopologicalSpace α]: Nontrivial ((homology n).obj (toPair α)) → n = 0
+  dimension (n : ℤ) (α : Type*) [Unique α] : Nontrivial ((homology n).obj (toPair α)) → n = 0
 
-end Homology
+/-
+structure test (R : Type*) [Ring R] {F : HomotopyInvExcisionFunctor R} (α : Type*) [Unique α] where
+  dimension (n : ℤ) (α : Type*) [Unique α] : Nontrivial (F.obj (toPair α)) → n = 0
+-/
 
+/-
+  additivity
+-/
 
-#check SimplexCategory.toTopMap
-open SimplexCategory
-open Simplicial BigOperators
-
-variable (x : SimplexCategory)
-#check toTopObj x
-
-#check (toTopObj ([0]))
-#check (CategoryTheory.forget SimplexCategory).obj ([0])
-
-notation  "Δ["n"]" => toTopObj [n]
+#check @Sigma.mk
+#check instTopologicalSpaceSigma
 
 
-@[simp]
-lemma test' : (CategoryTheory.forget SimplexCategory).obj ([0]) = Fin 1 := rfl
+def SigmaTopPair {ι : Type*} (P : ι → TopPair) : TopPair where
+  total := Σ i, (P i).total
+  sub :=  Σ i, (P i).sub
+  isTotalTopologicalSpace := by infer_instance
+  isSubTopologicalSpace := by infer_instance
+  map := Sigma.map id (fun i a ↦ (@TopPair.map (P i)) a)
+  isEmbedding := sorry
 
-instance : Unique (toTopObj ([0])) where
-  default := ⟨fun _ ↦ 1, by ext; simp⟩
-  uniq := by
-    intro a
-    ext i
-    simp
-    simp at i
-    have : i = 0 := by simp
-    have : ∑ j : Fin 1, a j = a i := by simp [this]
-    rw [← this]
-    exact a.2
+def SigmaTopPairInc {ι : Type*} (P : ι → TopPair) (i : ι) : PairMap (P i) (SigmaTopPair P) where
+  toFun := fun a ↦ ⟨i, a⟩
+  continuous_toFun := continuous_iSup_rng continuous_coinduced_rng
+  sub_map := fun a ↦ ⟨i, a⟩
+  comm := sorry
 
-open TopPair Homology
 
-variable {R : Type*} [Ring R] (H : OrdHomology R)
+structure AddHomology {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) where
+  additivity {ι : Type*} (P : ι → TopPair) (i : ι): IsIso (F.map (SigmaTopPairInc P i))
 
-#check Nontrivial
 
-example : ¬Nontrivial ((H.homology 1).obj (toPair (Δ[0]))) := by
-  by_contra h
-  have : (1 : ℤ) = 0 := by apply H.dimension 1 (Δ[0]) h
-  norm_num at this
+
+/-
+example {α : Type u} {β : α → Type v} [t₂ : (a : α) → TopologicalSpace (β a)] :
+TopologicalSpace (Σ a, β a) := by infer_instance
+
+example {ι : Type u} (A : ι → Type u) [(i : ι) → AddCommMonoid (A i)] [(i : ι) → Module R (A i)] : Module R ( ⨁ (i : ι), A i ) := by infer_instance
+-/
+
+
+
+
+
+
+#check ContinuousMap
+#check Functor
+#check CategoryTheory.IsIso
+#check ContinuousMap.Homotopy
+#check Inducing
+#check ModuleCat
+#check continuous_id
+#check Embedding
+-- #check SemilinearMapClass
+
+
+#check Function.Injective
+#check Function.invFun
+#check ModuleCat
+-/
+-/

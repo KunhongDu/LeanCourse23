@@ -8,7 +8,11 @@
   4. category of R-mod
   5. homotopy
   6. exact sequence
--/-- solving universe problem
+-/
+
+-- solving universe problem by simply adding assumption that everthing is in the 0-th universe
+
+
 
 import Mathlib.Topology.Category.TopCat.Basic
 import Mathlib.Topology.Homotopy.Basic
@@ -16,7 +20,7 @@ import Mathlib.Topology.Homotopy.Equiv
 import Mathlib.CategoryTheory.ConcreteCategory.BundledHom
 import Mathlib.Algebra.Category.ModuleCat.Abelian
 import Mathlib.Algebra.Homology.Exact
-import Mathlib.AlgebraicTopology.TopologicalSimplex
+import Mathlib.AlgebraicTopology.SimplicialSet
 noncomputable section
 
 #check TopologicalSpace
@@ -489,9 +493,11 @@ variable (x : SimplexCategory)
 #check (toTopObj ([0]))
 #check (CategoryTheory.forget SimplexCategory).obj ([0])
 
-notation  "Δ["n"]" => toTopObj [n]
 
+-- to distinguish from Δ[n], which is a simplicial set
+notation  "Δ("n")" => toTopObj [n]
 
+/-
 @[simp]
 lemma test' : (CategoryTheory.forget SimplexCategory).obj ([0]) = Fin 1 := rfl
 
@@ -506,14 +512,81 @@ instance : Unique (toTopObj ([0])) where
     have : ∑ j : Fin 1, a j = a i := by simp [this]
     rw [← this]
     exact a.2
-
+-/
 open TopPair Homology
-
+/-
 variable {R : Type*} [Ring R] (H : OrdHomology R)
 
 #check Nontrivial
 
-example : ¬Nontrivial ((H.homology 1).obj (toPair (Δ[0]))) := by
-  by_contra h
-  have : (1 : ℤ) = 0 := by apply H.dimension 1 (Δ[0]) h
-  norm_num at this
+example (n: ℤ): Nontrivial ((H.homology n).obj (toPair (Δ(0)))) → n = 0:= H.dimension n (Δ[0])
+-/
+
+-- need to define boundary of simplex (SSet.boundary is a SSet, too complicated to work with)
+
+open Set
+structure DownwardClosed (n : ℕ) where
+  carrier : Set (Set (Fin (n + 1)))
+  downward_closed : ∀ I J, J ∈ carrier ∧ I ≠ ∅ ∧ I ⊆ J → I ∈ carrier
+
+example (α : Type) (x y : Set α) : x = univ → x ⊆ y → y = univ := by
+  intro h h'
+  apply univ_subset_iff.mp
+  rwa [h] at h'
+
+
+-- Col for collection
+def BoundaryCol (n : ℕ) : DownwardClosed n where
+  carrier := {I | I ≠ ∅ ∧ I ≠ univ}
+  downward_closed := by
+    intro I J h
+    constructor
+    . exact h.2.1
+    . by_contra h'
+      rw [h'] at h
+      have : J = univ := univ_subset_iff.mp h.2.2
+      exact h.1.2 this
+
+#check Fin.succAboveEmb
+def HornCol (n : ℕ) (i : Fin (n + 1)): DownwardClosed n where
+  carrier := {I | I ≠ ∅ ∧ I ≠ univ ∧ I ≠ {j | j ≠ i }}
+  downward_closed := by
+    intro I J h
+    simp
+    simp at h
+    constructor
+    . exact h.2.1
+    . contrapose! h
+      intro h1 _ h3
+      have : I ≠ univ := by
+        by_contra h'
+        rw [h'] at h3
+        apply h1.2.1 (univ_subset_iff.mp h3)
+      specialize h this
+      rw [h] at h3
+      by_cases hi : i ∈ J
+      . apply h1.2.1
+        apply univ_subset_iff.mp
+        intro j _
+        by_cases hj : j ≠ i
+        exact h3 hj
+        simp at hj
+        rwa [← hj] at hi
+      . apply h1.2.2
+        apply subset_antisymm ?_ h3
+        intro j hj
+        simp
+        intro h
+        apply hi
+        rwa [h] at hj
+
+variable {n : ℕ} (U : DownwardClosed n) (f : Δ(n)) {i : Fin (n+1)}
+
+def Realization {n : ℕ} (U : DownwardClosed n) :=
+  {f : Δ(n)| { i : Fin (n + 1) | f i ≠ 0 } ∈ U.carrier}
+
+notation "∂Δ("n")" => Realization (BoundaryCol n)
+
+notation "Λ("n","i")" => Realization (HornCol n i)
+
+#check Λ(n,i)

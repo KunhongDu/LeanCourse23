@@ -1,14 +1,4 @@
-/-
-  Want to formalize the Eilenberg–Steenrod axioms and show some easy consequences.
-
-  Would use
-  1. category
-  2. functors
-  3. category of pairs of top spaces
-  4. category of R-mod
-  5. homotopy
-  6. exact sequence
--/-- solving universe problem
+-- solving universe problem
 
 import Mathlib.Topology.Category.TopCat.Basic
 import Mathlib.Topology.Homotopy.Basic
@@ -16,7 +6,6 @@ import Mathlib.Topology.Homotopy.Equiv
 import Mathlib.CategoryTheory.ConcreteCategory.BundledHom
 import Mathlib.Algebra.Category.ModuleCat.Abelian
 import Mathlib.Algebra.Homology.Exact
-import Mathlib.AlgebraicTopology.TopologicalSimplex
 noncomputable section
 
 #check TopologicalSpace
@@ -459,9 +448,8 @@ structure BoundInjExact {F G : TopPair ⥤ ModuleCat R} (bd :BoundaryOp F G) (P 
 /-
 define a coecion from HomotopyInvExcisionFunctor to Functor
 -/
-/-
 instance (α : Type) [Unique α]: TopologicalSpace α := TopologicalSpace.generateFrom ⊤
--/
+
 structure ExOrdHomology (R : Type*) [Ring R] where
   homology (n : ℤ): TopPair ⥤ ModuleCat R
   homotopy_inv : ∀ n,  HomotopyInvariant (homology n)
@@ -474,46 +462,23 @@ structure ExOrdHomology (R : Type*) [Ring R] where
 
 
 structure OrdHomology (R : Type*) [Ring R] extends ExOrdHomology R where
-  dimension (n : ℤ) (α : Type) [Unique α] [TopologicalSpace α]: Nontrivial ((homology n).obj (toPair α)) → n = 0
+  dimension (n : ℤ) (α : Type) [Unique α] : Nontrivial ((homology n).obj (toPair α)) → n = 0
 
 end Homology
 
-
-#check SimplexCategory.toTopMap
-open SimplexCategory
-open Simplicial BigOperators
-
-variable (x : SimplexCategory)
-#check toTopObj x
-
-#check (toTopObj ([0]))
-#check (CategoryTheory.forget SimplexCategory).obj ([0])
-
-notation  "Δ["n"]" => toTopObj [n]
+#check ContinuousMap
+#check Functor
+#check CategoryTheory.IsIso
+#check ContinuousMap.Homotopy
+#check Inducing
+#check ModuleCat
+#check continuous_id
+#check Embedding
+-- #check SemilinearMapClass
 
 
-@[simp]
-lemma test' : (CategoryTheory.forget SimplexCategory).obj ([0]) = Fin 1 := rfl
-
-instance : Unique (toTopObj ([0])) where
-  default := ⟨fun _ ↦ 1, by ext; simp⟩
-  uniq := by
-    intro a
-    ext i
-    simp
-    simp at i
-    have : i = 0 := by simp
-    have : ∑ j : Fin 1, a j = a i := by simp [this]
-    rw [← this]
-    exact a.2
-
-open TopPair Homology
-
-variable {R : Type*} [Ring R] (H : OrdHomology R)
-
-#check Nontrivial
-
-example : ¬Nontrivial ((H.homology 1).obj (toPair (Δ[0]))) := by
-  by_contra h
-  have : (1 : ℤ) = 0 := by apply H.dimension 1 (Δ[0]) h
-  norm_num at this
+#check Function.Injective
+#check Function.invFun
+#check ModuleCat
+-/
+-/

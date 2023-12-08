@@ -1,4 +1,6 @@
 import Mathlib.Topology.Category.TopCat.Basic
+import Mathlib.Topology.Homotopy.Basic
+import Mathlib.Topology.Homotopy.Equiv
 import Mathlib.CategoryTheory.ConcreteCategory.BundledHom
 import Mathlib.Algebra.Category.ModuleCat.Basic
 
@@ -15,24 +17,78 @@ class TopPair (α β : Type*) [TopologicalSpace α] [TopologicalSpace β] where
 
 -- coersion
 
-#check Empty
+#check instTopologicalSpaceEmpty
 
+/-
 instance emptyTop : TopologicalSpace Empty where
   IsOpen := fun _ ↦ true
   isOpen_univ := rfl
   isOpen_inter := fun _ _ a _ ↦ a
   isOpen_sUnion := fun _ _ ↦ rfl
+-/
 
+/-- ` toPair ` sends a topological space ` α ` to a topological pair ` (α, ∅) `
+-/
 def toPair (α : Type*) [TopologicalSpace α]: TopPair α Empty where
   map := Empty.rec
   isEmbedding := by simp [embedding_iff, inducing_iff, Function.Injective]
 
-def RangeSub {α β γ : Type*} (f : α → γ) (g : β → γ) : Prop :=
-  Set.range f ⊆ Set.range g
+
+-- define the operation of excision
+
+#check Set.inclusion
+#check TopologicalSpace.induced
+#check continuous_induced_dom
+-- maybe first define a structure of subspace?
+
+example (U : Set α) : U ⊆ Set.univ := by exact Set.subset_univ U
+
+-- example (U : Set α) : U → α :=
+
+
+
+/-
+open TopologicalSpace in
+structure TopSubspace (α : Type*) [TopologicalSpace α] where
+  carrier : Set α
+  inclusion := fun u : carrier ↦ (u : α)
+  topology := induced inclusion (by infer_instance)
+  continuity : Continuous inclusion := by continuity
+  inclusion' := ContinuousMap.mk inclusion
+  -- continuous_induced_dom does not work, which should be the theorem ` continuity ` has referred to
+  -- also ` by exact [something] ` does not work
+  -- gives ` invalid auto tactic, identifier is not allowed `
+-/
+/-
+structure TopSubspace (α : Type*) [TopologicalSpace α] where
+  carrier : Set α
+  inclusion : carrier → α
+  topology : TopologicalSpace carrier
+  continuity : Continuous inclusion
+  inclusion' : C(carrier, α)
+
+open TopologicalSpace in
+instance (U : Set α) : TopSubspace α where
+  carrier := U
+  inclusion := fun u : U ↦ (u : α)
+  topology := induced (fun u : U ↦ (u : α)) (by infer_instance)
+  continuity := by continuity
+  inclusion' := ContinuousMap.mk (fun u : U ↦ (u : α))
+-/
+variable {U : Set α}
+
+
+
+-- #check TopSubspace.mk
+
+
+/-
+def PairRangeSub (P₁ : TopPair α β) (P₂ : TopPair α' β') (f : C(α, α')) : Prop :=
+  Set.range (f ∘ P₁.map) ⊆ Set.range P₂.map
 
 @[ext]
 class PairMap (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMap α α' where
-  image_sub : RangeSub (toFun ∘ P₁.map) P₂.map
+  image_sub : PairRangeSub P₁ P₂ (ContinuousMap.mk toFun)
 
 #check PairMap.toContinuousMap
 
@@ -88,14 +144,44 @@ theorem id_comp (f : PairMap P P') : PairMap.comp PairMap.id f = f := by ext; si
 theorem comp_assoc {α''' β''' :  Type u} [TopologicalSpace α'''] [TopologicalSpace β'''] {P''' : TopPair α''' β'''} (f'' : PairMap P'' P''') (f' : PairMap P' P'') (f : PairMap P P') :
   PairMap.comp (PairMap.comp f'' f') f = PairMap.comp f'' (PairMap.comp f' f) := by ext; simp
 
-end PairMap
 /-
   Homotopy of pairs
 -/
 
+open ContinuousMap
+/-
+structure PairHomotopy (f₀ f₁ : PairMap P P') extends Homotopy (f₀ : C(α, α')) f₁ where
+  always_image_sub : ∀ t, RangeSub ((fun x ↦ toFun (t, x)) ∘ P.map) P'.map
+-/
+
+structure PairHomotopy (f₀ f₁ : PairMap P P') extends HomotopyWith (f₀ : C(α, α')) f₁ (PairRangeSub P P')
+
+def PairHomotopic (f₀ f₁ : PairMap P P') : Prop :=
+  Nonempty (PairHomotopy f₀ f₁)
 
 
 
+
+
+
+@[ext]
+structure PairHomotopyEquiv (P : TopPair α β) (P' : TopPair α' β') where
+  toFun : PairMap P P'
+  invFun : PairMap P' P
+  left_inv : PairHomotopy (invFun.comp toFun) PairMap.id
+  right_inv : PairHomotopy (invFun.comp toFun) PairMap.id
+
+
+
+infixl:25 " ≃ₕ " => PairMap.PairHomotopyEquiv
+
+#check P ≃ₕ P'
+
+
+
+
+-- coercion to HomotopyWith
+end PairMap
 
 
 /-
@@ -131,10 +217,15 @@ instance TopPairCategory : Category TopPairCat where
   Functor
 -/
 variable (R : Type*) [Ring R]
+variable {P : TopPairCat} {P' : TopPairCat}
+open PairMap in
+structure ExOrdHomology extends Functor TopPairCat (ModuleCat R) where
+  homotopy_inv : ∀ f f' : (P ⟶ P'), PairHomotopic f f' → (map f = map f')
 
--- structure ExOrdHomology extends Functor TopPairCat (ModuleCat R) where
 
-
+#check ContinuousMap.Homotopy
+#check Inducing
 #check ModuleCat
 #check continuous_id
 -- #check SemilinearMapClass
+-/
