@@ -40,6 +40,8 @@ structure TopPair where
 
 attribute [instance] TopPair.isTotalTopologicalSpace TopPair.isSubTopologicalSpace
 
+namespace TopPair
+
 /-- ` toPair ` sends a topological space ` α ` to a topological pair ` (α, ∅) `
 -/
 def toPair (α : Type) [TopologicalSpace α]: TopPair where
@@ -59,6 +61,27 @@ lemma to_pair_sub_eq_empty {α : Type} [TopologicalSpace α] : (toPair α).sub =
 @[simp]
 lemma to_pair_map_empty_rec {α : Type} [TopologicalSpace α]: (toPair α).map = Empty.rec := rfl
 
+def SubsetToPair (α : Type) [TopologicalSpace α] (β : Set α) : TopPair where
+  total := α
+  sub := β
+  isTotalTopologicalSpace := by infer_instance
+  isSubTopologicalSpace := by infer_instance
+  map := Subtype.val -- fun x ↦ x.1
+  isEmbedding := embedding_subtype_val
+
+scoped[TopPair] notation "P("α", "β")" => SubsetToPair α β
+
+@[simp]
+lemma subset_to_pair_total_eq_total {α : Type} [TopologicalSpace α] {β : Set α}: P(α, β).total = α := rfl
+
+@[simp]
+lemma subset_to_pair_sub_eq_sub {α : Type} [TopologicalSpace α] {β : Set α}: P(α, β).sub = β := rfl
+
+@[simp]
+lemma subset_to_pair_map_eq_inc {α : Type} [TopologicalSpace α] {β : Set α}: P(α, β).map = Subtype.val := rfl
+
+end TopPair
+
 @[ext]
 structure PairMap (P₁ : TopPair) (P₂ : TopPair) extends C(P₁.total, P₂.total) where
   sub_map : P₁.sub → P₂.sub
@@ -66,6 +89,7 @@ structure PairMap (P₁ : TopPair) (P₂ : TopPair) extends C(P₁.total, P₂.t
 
 namespace PairMap
 variable {P P₁ P₂ P₃ : TopPair}
+open TopPair
 
 -- this is no good
 def ContinuousMapExtendsToPairMap (f : C(P₁.total, P₂.total)) : Prop :=
@@ -283,6 +307,12 @@ def Excision (P : TopPair) (U : Set P.sub) : TopPair where
 @[simp]
 lemma excision_map_eq_self_map {P : TopPair} {U : Set P.sub} {x : (Uᶜ : Set P.sub)}: ((Excision P U).map x).1 = P.map x.1 := rfl
 
+@[simp]
+lemma excision_total_eq_total_excision {P : TopPair} {U : Set P.sub}: (Excision P U).total = ((P.map '' U)ᶜ : Set P.total) := rfl
+
+@[simp]
+lemma excision_sub_eq_sub_excision {P : TopPair} {U : Set P.sub}: (Excision P U).sub = (Uᶜ : Set P.sub) := rfl
+
 def ExcisionInc (P : TopPair) (U : Set P.sub) : PairMap (Excision P U) P where
   toFun := fun x ↦ x.1
   continuous_toFun := by continuity
@@ -370,7 +400,7 @@ protected def trivial (R : Type*) [Ring R] : TopPair ⥤ ModuleCat R where
 -/
 variable {R : Type*} [Ring R]
 variable {P : TopPair} {P' : TopPair}
-open PairMap
+open PairMap TopPair
 
 open CategoryTheory in
 
@@ -483,12 +513,10 @@ structure OrdHomology (R : Type*) [Ring R] extends ExOrdHomology R where
 end Homology
 
 
+namespace TopologicalSimplex
 #check SimplexCategory.toTopMap
 open SimplexCategory
 open Simplicial BigOperators
-
-variable (x : SimplexCategory)
-#check toTopObj x
 
 #check (toTopObj ([0]))
 #check (CategoryTheory.forget SimplexCategory).obj ([0])
@@ -525,9 +553,14 @@ example (n: ℤ): Nontrivial ((H.homology n).obj (toPair (Δ(0)))) → n = 0:= H
 -- need to define boundary of simplex (SSet.boundary is a SSet, too complicated to work with)
 
 open Set
+@[ext]
 structure DownwardClosed (n : ℕ) where
   carrier : Set (Set (Fin (n + 1)))
-  downward_closed : ∀ I J, J ∈ carrier ∧ I ≠ ∅ ∧ I ⊆ J → I ∈ carrier
+  downward_closed : ∀ I J, J ∈ carrier ∧ I.Nonempty ∧ I ⊆ J → I ∈ carrier
+
+instance (n : ℕ) : SetLike (DownwardClosed n)  (Set (Fin (n + 1))) where
+  coe s := s.carrier
+  coe_injective' := by intro _ _ h; ext1; exact h
 
 example (α : Type) (x y : Set α) : x = univ → x ⊆ y → y = univ := by
   intro h h'
@@ -537,7 +570,7 @@ example (α : Type) (x y : Set α) : x = univ → x ⊆ y → y = univ := by
 
 -- Col for collection
 def BoundaryCol (n : ℕ) : DownwardClosed n where
-  carrier := {I | I ≠ ∅ ∧ I ≠ univ}
+  carrier := {I | I.Nonempty ∧ I ≠ univ}
   downward_closed := by
     intro I J h
     constructor
@@ -549,7 +582,7 @@ def BoundaryCol (n : ℕ) : DownwardClosed n where
 
 #check Fin.succAboveEmb
 def HornCol (n : ℕ) (i : Fin (n + 1)): DownwardClosed n where
-  carrier := {I | I ≠ ∅ ∧ I ≠ univ ∧ I ≠ {j | j ≠ i }}
+  carrier := {I | I.Nonempty ∧ I ≠ univ ∧ I ≠ {j | j ≠ i }}
   downward_closed := by
     intro I J h
     simp
@@ -580,13 +613,190 @@ def HornCol (n : ℕ) (i : Fin (n + 1)): DownwardClosed n where
         apply hi
         rwa [h] at hj
 
-variable {n : ℕ} (U : DownwardClosed n) (f : Δ(n)) {i : Fin (n+1)}
+
+
 
 def Realization {n : ℕ} (U : DownwardClosed n) :=
   {f : Δ(n)| { i : Fin (n + 1) | f i ≠ 0 } ∈ U.carrier}
 
+
+-- this is solved, but there should be a more basic tactic
+lemma mem_realization_iff {n : ℕ} {U : DownwardClosed n} {f : Δ(n)} : f ∈ Realization U ↔ { i : Fin (n + 1) | f i ≠ 0 } ∈ U.carrier := by simp [Realization]
+
 notation "∂Δ("n")" => Realization (BoundaryCol n)
 
-notation "Λ("n","i")" => Realization (HornCol n i)
+notation "Λ("n", "i")" => Realization (HornCol n i)
 
-#check Λ(n,i)
+-- #check Λ(n,i)
+
+-- #check P(Δ(n), ∂Δ(n))
+
+-- face maps are already defined
+
+notation "d("n", "i")" => toTopMap (@δ n i)
+
+-- face maps restrict to bouandary, and boundary restricts to horn
+
+lemma realization_mono {n : ℕ} {U₁ U₂: DownwardClosed n} (h: U₁.1 ⊆ U₂.1): Realization U₁ ⊆ Realization U₂ := by
+  simp only [Realization]
+  intro _ hf
+  exact h hf
+
+lemma sum_eq_one {n : ℕ} (f : Δ(n)) : ∑ i, f i = 1 := by
+  simp [toTopObj] at f
+  exact f.2
+
+
+lemma exsit_nonzero {n : ℕ} (f : Δ(n)) : ∃ j, f j ≠ 0 := by
+  by_contra h
+  simp at h
+  have : ∑ i, f i = 0 := by
+    apply Finset.sum_eq_zero
+    simp [h]
+  rw [sum_eq_one f] at this
+  norm_num at this
+
+
+#check Finset.univ
+
+lemma horn_sub_boundary {n : ℕ} {i : Fin (n + 1)} : Λ(n, i) ⊆ ∂Δ(n) := by
+  apply realization_mono
+  have h1 : (HornCol n i).carrier = {I | I.Nonempty ∧ I ≠ univ ∧ I ≠ {j | j ≠ i }} := rfl
+  have h2 : (BoundaryCol n).carrier = {I | I.Nonempty ∧ I ≠ univ} := rfl
+  simp [h1, h2]
+  intro a h h' _
+  exact ⟨h, h'⟩
+
+open Classical -- solve decidability ......
+
+lemma face_map_exist_nonzero {n: ℕ} {i: Fin (n + 2)} {x : Δ(n)} : Set.Nonempty {j | (d(n,i) x) j ≠ 0} := by
+  obtain ⟨j, hj⟩ := exsit_nonzero x
+  use (δ i) j -- ` : Fin (n + 2) `
+  simp
+  use j
+
+lemma face_map_exist_zero {n: ℕ} {i: Fin (n + 2)} {x : Δ(n)} : {j | (d(n,i) x) j ≠ 0} ≠ univ := by
+  by_contra h
+  have : i ∈ {j | (toTopMap (δ i) x) j ≠ 0} := by
+    rw [h]; simp
+  simp at this
+  obtain ⟨j, hj, _⟩ := this
+  apply (Fin.succAbove_ne i j) hj
+
+lemma face_map_image_sub_boundary {n : ℕ} {i : Fin (n + 2)} {x : Δ(n)} : d(n,i) x ∈ ∂Δ(n+1) := by
+  apply mem_realization_iff.mpr
+  have : (BoundaryCol (n+1)).carrier = {I | I.Nonempty ∧ I ≠ univ} := rfl
+  simp only [this]
+  exact ⟨face_map_exist_nonzero, face_map_exist_zero⟩
+
+lemma face_map_image_of_boundary_sub_horn (n : ℕ) (i : Fin (n + 2)) (x : ∂Δ(n)) : d(n,i) x ∈ Λ(n+1, i) := by
+  apply mem_realization_iff.mpr
+  have : (HornCol (n+1) i).carrier = {I | I.Nonempty ∧ I ≠ univ ∧ I ≠ {j | j ≠ i }} := rfl
+  simp only [this]
+  clear this
+  refine ⟨face_map_exist_nonzero, ⟨face_map_exist_zero, ?_⟩⟩
+  by_contra h
+  have aux : ∀ j, j ≠ i → (d(n, i) x) j ≠ 0 := by
+    intro j hj
+    have : j ∈ {j | j ≠ i} := hj
+    rw [← h] at this
+    exact this
+  have : ∀ (j : Fin (n + 1)), x.1 j ≠ 0 := by
+    intro j
+    by_contra h
+    apply aux ((δ i) j) _ _
+    exact Fin.succAbove_ne i j
+    simp [toTopMap]
+    intro k hk
+    apply (Fin.succAboveEmb i).inj' at hk
+    rwa [← hk] at h
+  have : x.1 ∉ ∂Δ(n) := by
+    simp [mem_realization_iff, BoundaryCol]
+    intro _
+    apply univ_subset_iff.mp
+    intro j _
+    exact this j
+  exact this x.2
+
+-- decompose `d(n,i)` on `(Δ(n), ∂Δ(n))` into a deformation retract and an excision
+--
+
+/--
+  vertex of simplexes
+-/
+
+def Ver (n : ℕ) (i : Fin (n + 1)) : Δ(n) where
+  val k := if k = i then 1 else 0
+  property := by simp [toTopObj]
+
+lemma vertex_in_boundary {n : ℕ} [NeZero n] {i : Fin (n + 1)} : Ver n i ∈ ∂Δ(n) := by
+  simp [mem_realization_iff, BoundaryCol]
+  constructor
+  . use i
+    simp [Ver]
+  . apply Ne.symm
+    apply ne_of_mem_of_not_mem' _ _
+    exact (i+1)
+    simp
+    simp [Ver]
+    exact NeZero.ne n
+
+def VerB (n : ℕ) [NeZero n] (i : Fin (n + 1)) : ∂Δ(n) := ⟨Ver n i, vertex_in_boundary⟩
+
+@[simp]
+lemma ver_b_val {n : ℕ} [NeZero n] (i : Fin (n + 1)) : (VerB n i).val = Ver n i := rfl
+
+lemma vertex_in_horn {n : ℕ} [NeZero n] {i : Fin (n + 1)}: Ver n i ∈ Λ(n,i) := by
+  simp [mem_realization_iff, HornCol]
+  constructor
+  . use i
+    simp [Ver]
+  . constructor
+    . apply Ne.symm
+      apply ne_of_mem_of_not_mem' _ _
+      exact (i+1)
+      simp
+      simp [Ver]
+      exact NeZero.ne n
+    . apply ne_of_mem_of_not_mem' _ _
+      exact i
+      simp [Ver]
+      simp
+
+def VerH (n : ℕ) [NeZero n] (i : Fin (n + 1)) : Λ(n,i) := ⟨Ver n i, vertex_in_horn⟩
+
+open PairMap
+
+def SimplexExciseVertex (n : ℕ) [NeZero n] {i : Fin (n+1)} := ExcisionInc P(Δ(n), ∂Δ(n)) {VerB n i}
+
+variable {n : ℕ} [NeZero n] {i : Fin (n+2)} {j : Fin (n+2)}
+-- #check Excision P(Δ(n), ∂Δ(n)) {VerB n 0}
+
+lemma aux (x : Δ(n)) : (d(n,j) x) ∈ ({Ver (n+1) j}ᶜ : Set Δ(n+1)) := by sorry
+
+def FaceMapReduced : PairMap P(Δ(n), ∂Δ(n)) (Excision P(Δ(n+1), ∂Δ(n+1)) {VerB (n+1) i}) where
+  toFun := by
+    rw [subset_to_pair_total_eq_total, excision_total_eq_total_excision, subset_to_pair_map_eq_inc, image]
+    -- simp only [subset_to_pair_total_eq_total, subset_to_pair_sub_eq_sub, mem_singleton_iff,
+    -- exists_eq_left, ver_b_val, setOf_eq_eq_singleton']
+    -- exact Set.codRestrict d(n, i) (↑{Ver (n + 1) i}ᶜ) aux
+  continuous_toFun := _
+  sub_map := _
+  comm := _
+
+/-
+  I want to construct a function (the `toFun` above)
+  `P(↑(toTopObj [n]), ∂Δ(n)).total → (Excision P(↑(toTopObj [n + 1]), ∂Δ(n + 1)) {VerB (n + 1) i}).total`.
+
+  The left hand side is definitionally equal to `Δ(n)`.
+
+  But the right hand side seems be not 'definitionally' equal to `(↑{Ver (n + 1) i}ᶜ)` though I can prove them to be equal (need to use lemmas like `mem_singleton_iff` and `exists_eq_left`).
+
+  Now by `simp` and then `exact Set.codRestrict d(n, i) (↑{Ver (n + 1) i}ᶜ) aux` I can construct the function I need.
+
+  The problem is now that the function is casted (at least it's what's showed in the tactics states) how I can reason about its properties like continuity? Or is there any way to avoid the cast here?
+
+  By the way, I guess it's the definition of  `Excision` that makes everything messy. Is there any improvement?
+-/
+
+end TopologicalSimplex

@@ -1,132 +1,94 @@
 import Mathlib.Topology.Category.TopCat.Basic
-import Mathlib.CategoryTheory.ConcreteCategory.BundledHom
-import Mathlib.Algebra.Category.ModuleCat.Basic
 
-#check TopologicalSpace
+section one
+variable (α β: Type) [TopologicalSpace α] [TopologicalSpace β] (f : α → α) (b : β) (h : (α → α) = (β → β)) (p : (γ : Type) → (γ → γ) → Prop)
+-- (hα : α = α') (hβ : β = β')
 
--- I decide to require them to be in the same universe
-universe u v w
-variable {α β α' β' α'' β'': Type*}
-variable [TopologicalSpace α]  [TopologicalSpace β] [TopologicalSpace α'] [TopologicalSpace β'] [TopologicalSpace α''] [TopologicalSpace β'']
+#check Eq.mp h f
+#check Eq.mpr h
+#check @Continuous -- β β _ _ (Eq.mp h f)
 
-@[ext]
-class TopPair (α β : Type*) [TopologicalSpace α] [TopologicalSpace β] where
-  map : β  → α
-  isEmbedding : Embedding map
+example (hf : Continuous f) : @Continuous β β _ _ (Eq.mp h f) := by
+  sorry
 
--- coersion
+example (hf : Continuous f) : Continuous (Eq.mp h f) := by
+  sorry
 
-#check Empty
+example (hf : p α f) : ((p α) ∘ (Eq.mpr h)) (Eq.mp h f) := by simp [hf]
 
-instance emptyTop : TopologicalSpace Empty where
-  IsOpen := fun _ ↦ true
-  isOpen_univ := rfl
-  isOpen_inter := fun _ _ a _ ↦ a
-  isOpen_sUnion := fun _ _ ↦ rfl
+example (hf : p α f) : (p β) (Eq.mp h f) := by sorry
 
-def toPair (α : Type*) [TopologicalSpace α]: TopPair α Empty where
-  map := Empty.rec
-  isEmbedding := by simp [embedding_iff, inducing_iff, Function.Injective]
+example : p β = (p α) ∘ (Eq.mpr h) := by sorry
 
-def RangeSub {α β γ : Type*} (f : α → γ) (g : β → γ) : Prop :=
-  Set.range f ⊆ Set.range g
+end one
 
-@[ext]
-class PairMap (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMap α α' where
-  image_sub : RangeSub (toFun ∘ P₁.map) P₂.map
+section two
 
-#check PairMap.toContinuousMap
+variable (α β: Type) [TopologicalSpace α] [TopologicalSpace β] (f : α → α) (b : β) (h : α = β ) (p : (γ : Type) → γ → Prop) (x : α)
 
-/-
-class PairMapClass (F : Type*) {α β α' β' : Type*} [TopologicalSpace α] [TopologicalSpace β] [TopologicalSpace α'] [TopologicalSpace β'] (P₁ : TopPair α β) (P₂ : TopPair α' β') extends ContinuousMapClass F α α'
--/
+#check Eq.mp h x
 
-namespace PairMap
-variable {P : TopPair α β} {P' : TopPair α' β'} {P'' : TopPair α'' β''}
+example : p β = (p α) ∘ (Eq.mpr h) := by
+  ext x
+  constructor
+  . intro hx
+    have : (p α ∘ Eq.mpr h) x = p α (Eq.mpr h x) := rfl
+    rw [this]
+    set x' := Eq.mpr h x
+    have xx' : x = Eq.mp h x' := by simp
+    have aux : (p β ∘ Eq.mp h) x' = p β (Eq.mp h x') := rfl
+    rw [← xx'] at aux
+    have e : (α → Prop) = (β → Prop) := by simp [h]
+    have : p α = Eq.mpr e (p β) := by sorry
+  sorry
 
-instance : ContinuousMapClass (PairMap P P') α α' where
-  coe := fun f ↦ f.toFun
-  coe_injective' := by
-    intro f f' h
-    ext1
-    exact h
-  map_continuous := fun f ↦ f.continuous
+example (P : (γ : Type) → γ) : P α = Eq.mpr h (P β) := by sorry
 
 /-
-example (f : α → β) (g : β → β) : Set.range (g ∘ f) ⊆ Set.range (g) := by exact Set.range_comp_subset_range f g
+α β : Type
+inst✝¹ : TopologicalSpace α
+inst✝ : TopologicalSpace β
+f : α → α
+b : β
+h : α = β
+p : (γ : Type) → γ → Prop
+x : α
+P : Type → Prop
+⊢ P α = sorryAx Prop true
 
-example (f : α → β) (A B : Set α) (h : A ⊆ B): f '' A ⊆ f '' B := by exact
-  Set.image_subset f h
+example (P : (γ : Type) → Prop) : P α = h.symm ▸ (P β) := by
 -/
-protected def id : PairMap P P where
-  toFun := id
-  -- continuous_toFun := continuous_id
-  -- I don't need this field why?
-  image_sub := by intro a ha; obtain ⟨b, hb⟩ := ha; use b; exact hb
+example (P : (γ : Type) → γ) : P α = h.symm ▸ (P β) := by sorry
 
-open Set in
-protected def comp (f : PairMap P' P'') (g : PairMap P P') : PairMap P P'' where
-  toFun := f ∘ g
-  image_sub := by
-    simp
-    calc range ((↑f ∘ ↑g) ∘ TopPair.map) = range (↑f ∘ (↑g ∘ P.map)) := rfl
-    _ ⊆ range (↑f ∘ P'.map) := by
-      rw [range_comp, range_comp f]
-      apply Set.image_subset
-      exact g.image_sub
-    _ ⊆ range (P''.map) := f.image_sub
+example (Q : Type → Type) (P : (γ : Type) → Q γ) : P α = h.symm ▸ (P β) := by sorry
 
-#check Set.range
-#check PairMap.comp
+example (P : (γ : Type) → γ): β := h ▸ (P α)
 
-@[simp]
-theorem comp_id (f : PairMap P P') : PairMap.comp f PairMap.id = f := by ext; simp
+example (P : (γ : Type) → Prop) : P α = P β := by simp [h]
 
-@[simp]
-theorem id_comp (f : PairMap P P') : PairMap.comp PairMap.id f = f := by ext; simp
+example : Continuous (Eq.mp h) := by sorry
 
-@[simp]
-theorem comp_assoc {α''' β''' :  Type u} [TopologicalSpace α'''] [TopologicalSpace β'''] {P''' : TopPair α''' β'''} (f'' : PairMap P'' P''') (f' : PairMap P' P'') (f : PairMap P P') :
-  PairMap.comp (PairMap.comp f'' f') f = PairMap.comp f'' (PairMap.comp f' f) := by ext; simp
+#check h.symm ▸ h
+variable (P : Type → Prop) (q : (γ : Type) → γ)
 
-/-
-  Category
--/
+#check h.symm ▸ (P β)
+#check h.symm ▸ (q β)
+#check Eq.rec
+#check cast
 
-structure TopPairCat where
-  total : Type u
-  sub : Type u
-  isTotalTopologicalSpace : TopologicalSpace total
-  isSubTopologicalSpace : TopologicalSpace sub
-  isTopPair : TopPair total sub
+end two
 
-attribute [instance] TopPairCat.isTotalTopologicalSpace TopPairCat.isSubTopologicalSpace TopPairCat.isTopPair
+section three
+variable (α β α' β' : Type) [TopologicalSpace α] [TopologicalSpace β] [TopologicalSpace α'] [TopologicalSpace β'] (hα  : α = α') (hβ : β = β') (f: α → β) (hf : Continuous f)
 
-/-
-variable {C : TopPairCat}
-instance : CoeDep TopPairCat C (TopPair C.total C.sub) where
-  coe := C.isTopPair
--/
+-- def f' : α' → β' := by rw [← hα, ← hβ]; exact f
 
-open CategoryTheory
+-- not even well-defined
+-- example : Continuous f' := by
+end three
 
-instance TopPairCategory : Category TopPairCat where
-  Hom P Q := PairMap P.isTopPair Q.isTopPair
-  id _ := PairMap.id
-  comp f g := PairMap.comp g f
-  id_comp _ := by simp
-  comp_id _ := by simp
-  assoc _ _ _ := by simp
+variable (α β: Type) [TopologicalSpace α] [TopologicalSpace β] (f: α → β) (hf : Continuous f)
 
+def α' := α
 
-/-
-  Functor
--/
-variable (R : Type*) [Ring R]
-
--- structure ExOrdHomology extends Functor TopPairCat (ModuleCat R) where
-
-
-#check ModuleCat
-#check continuous_id
--- #check SemilinearMapClass
+def β' := β
