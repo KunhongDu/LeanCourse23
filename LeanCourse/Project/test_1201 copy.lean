@@ -27,24 +27,22 @@ attribute [instance] TopPair.isTotalTopologicalSpace TopPair.isSubTopologicalSpa
 
 /-- ` toPair ` sends a topological space ` α ` to a topological pair ` (α, ∅) `
 -/
-def toPair (α : Type*) [TopologicalSpace α]: TopPair where
+def toPair (α : Type u) [TopologicalSpace α]: TopPair where
   total := α
-  sub := ULift Empty
+  sub := Empty
   isTotalTopologicalSpace := by infer_instance
   isSubTopologicalSpace := by infer_instance
-  map := fun x ↦  isEmptyElim x
+  map := Empty.rec
   isEmbedding := by simp [embedding_iff, inducing_iff, Function.Injective]
-
-variable {α : Type 1} [TopologicalSpace α]
 
 @[simp]
 lemma to_pair_total_eq_self {α : Type*} [TopologicalSpace α]: (toPair α).total = α := rfl
 
 @[simp]
-lemma to_pair_sub_eq_empty {α : Type*} [TopologicalSpace α] : (toPair α).sub = Empty := sorry
+lemma to_pair_sub_eq_empty {α : Type*} [TopologicalSpace α] : (toPair α).sub = Empty := rfl
 
 @[simp]
-lemma to_pair_map_empty_rec {α : Type*} [TopologicalSpace α]: (toPair α).map = sorry := sorry
+lemma to_pair_map_empty_rec {α : Type*} [TopologicalSpace α]: (toPair α).map = Empty.rec := rfl
 
 @[ext]
 structure PairMap (P₁ : TopPair) (P₂ : TopPair) extends C(P₁.total, P₂.total) where
@@ -181,7 +179,7 @@ theorem comp_assoc {P₄ : TopPair} (f : PairMap P₁ P₂) (g : PairMap P₂ P�
 def toPairMap {α β : Type*} [TopologicalSpace α] [TopologicalSpace β] (f : C(α, β)): PairMap (toPair α) (toPair β) where
   toFun := f
   continuous_toFun := by continuity
-  sub_map := sorry
+  sub_map := Empty.rec
   comm := by simp
 
 -- Define a pair map ` X = (X, ∅) → (X, A) `, whose role in the long exact sequence is comparable a projection, so I'll call it so
@@ -189,12 +187,12 @@ def toPairMap {α β : Type*} [TopologicalSpace α] [TopologicalSpace β] (f : C
 def PairTotalToPair (P : TopPair) : TopPair := toPair (P.total)
 
 @[simp]
-lemma to_pair_total_map_empty_rec {P : TopPair}: (PairTotalToPair P).map = sorry := sorry
+lemma to_pair_total_map_empty_rec {P : TopPair}: (PairTotalToPair P).map = Empty.rec := rfl
 
 def ProjPairMap (P : TopPair) : PairMap (PairTotalToPair P) P where
   toFun := id
   continuous_toFun := by continuity
-  sub_map := sorry
+  sub_map := Empty.rec
   comm := by ext x; exact Empty.rec x
 
 -- A pair map induces a map between the subspaces
@@ -210,7 +208,7 @@ lemma target_sub_empty_of_source_sub_empty (f : PairMap P₁ P₂) (h : IsEmpty 
 def PairMapToSubPairMap (f : PairMap P₁ P₂) : PairMap (toPair P₁.sub) (toPair P₂.sub) where
   toFun := f.sub_map
   continuous_toFun := f.continuous_sub_map -- (by continuity does not work)
-  sub_map := sorry
+  sub_map := Empty.rec
   comm := by simp
 
 @[simp]
@@ -320,7 +318,7 @@ instance : CoeDep TopPair C (TopPair C.total C.sub) where
 
 open CategoryTheory
 
-instance TopPairegory : Category TopPair where
+instance TopPairCategory : Category TopPair where
   Hom P Q := PairMap P Q
   id _ := PairMap.id _
   comp f g := PairMap.comp f g
@@ -377,8 +375,8 @@ def ProjPairMap' (P : TopPair) : (toPair P.total) ⟶ P := ProjPairMap P
 def IncPairMap' (P : TopPair) : (toPair P.sub) ⟶ (toPair P.total) where
   toFun := P.map
   continuous_toFun := Embedding.continuous P.isEmbedding
-  sub_map := sorry
-  comm := by sorry
+  sub_map := Empty.rec
+  comm := by simp
 
 variable {F G : TopPair ⥤ ModuleCat R}
 open CategoryTheory
@@ -388,25 +386,13 @@ structure InjProjExact (F : TopPair ⥤ ModuleCat R) (P : TopPair) : Prop where
 
 -- an endofunctor of TopPair ` (α , β) ↦ (β, ∅)
 
-def PairToSubFunctor : TopPair ⥤ TopPair where
+def PairToSubFunctor.{u₁,u₂} : TopPair.{u₁,u₂} ⥤ TopPair.{u₂,0} where
   obj P := toPair P.sub
   map := PairMapToSubPairMap
   map_id := by simp
-  map_comp := by sorry
-
-#check ModuleCat R
-#check dite_apply
--- example (α β: Type*) (h : IsEmpty α) : α → β := h.elim
+  map_comp := by simp
 
 abbrev BoundaryOp.{u₁, u₂, u₃} {R : Type u₃} [Ring R] (F: TopPair.{u₁, u₂} ⥤ ModuleCat R) (G: TopPair.{u₂, 0} ⥤ ModuleCat R) := NatTrans F (PairToSubFunctor ⋙ G)
-
-#check BoundaryOp
-
-structure ProjBoundExact {F G : TopPair ⥤ ModuleCat R} (bd :BoundaryOp F G) (P : TopPair) : Prop where
-  inj_proj_exact : Exact (F.map (ProjPairMap' P)) (bd.app P)
-
-structure BoundInjExact {F G : TopPair ⥤ ModuleCat R} (bd :BoundaryOp F G) (P : TopPair) : Prop where
-  inj_proj_exact : Exact (bd.app P) (G.map (IncPairMap' P))
 
 /-
 define a coecion from HomotopyInvExcisionFunctor to Functor

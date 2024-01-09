@@ -26,7 +26,7 @@ noncomputable section
 #check TopologicalSpace
 
 universe u v w
--- variable {α β α' β' α'' β'': Type}
+-- variable {α β α' β' α'' β'': Type}isEmbedding
 -- variable [TopologicalSpace α]  [TopologicalSpace β]
 
 @[ext]
@@ -273,18 +273,11 @@ variable (U : Set P.sub)
 
 #check Set.inclusion
 
-/-
-failed to synthesize instance
-  HasCompl (Type u_1)
-
-def Excision : TopPair (P.map '' U)ᶜ  Uᶜ := by sorry
--/
-
 lemma excision_is_in (x : (Uᶜ : Set P.sub)) : P.map (x : P.sub)  ∈ (P.map '' U)ᶜ := by
   intro h
   obtain ⟨x', hx'1, hx'2⟩ := h
   apply @(P.isEmbedding.inj) at hx'2
-  have : (x : P.sub) ∈ Uᶜ := x.2 --- omg!!!
+  have : (x : P.sub) ∈ Uᶜ := x.2
   rw [← hx'2] at this
   exact this hx'1
 
@@ -298,11 +291,13 @@ def Excision (P : TopPair) (U : Set P.sub) : TopPair where
   isEmbedding := by
     simp [embedding_iff, Function.Injective]
     constructor
-    . sorry
+    . apply Inducing.codRestrict
+      have : (fun x : (Uᶜ : Set P.sub) ↦ P.map x.1) = (fun x ↦ P.map x) ∘ (fun x : (Uᶜ : Set P.sub) ↦ x.1) := by ext; simp
+      rw [this]
+      apply Inducing.comp P.isEmbedding.toInducing inducing_subtype_val
     . intro _ _ _ _ hab
       apply P.isEmbedding.inj hab
 
--- restriction is inducing...
 
 @[simp]
 lemma excision_map_eq_self_map {P : TopPair} {U : Set P.sub} {x : (Uᶜ : Set P.sub)}: ((Excision P U).map x).1 = P.map x.1 := rfl
@@ -331,6 +326,8 @@ structure PairHomotopy (f₀ f₁ : PairMap P P') extends Homotopy (f₀ : C(α,
 
 structure PairHomotopy (f₀ f₁ : PairMap P₁ P₂) extends HomotopyWith (f₀ : C(P₁.total, P₂.total)) f₁ ContinuousMapExtendsToPairMap
 
+infixl:25 " ≃ₕ " => PairMap.PairHomotopy
+
 def PairHomotopic (f₀ f₁ : PairMap P₁ P₂) : Prop :=
   Nonempty (PairHomotopy f₀ f₁)
 
@@ -338,8 +335,8 @@ def PairHomotopic (f₀ f₁ : PairMap P₁ P₂) : Prop :=
 structure PairHomotopyEquiv (P₁ : TopPair) (P₂ : TopPair) where
   toFun : PairMap P₁ P₂
   invFun : PairMap P₂ P₁
-  left_inv : PairHomotopy (toFun.comp invFun) (PairMap.id P₁)
-  right_inv : PairHomotopy (invFun.comp toFun) (PairMap.id P₂)
+  left_inv : PairHomotopy (toFun ◾ invFun) (PairMap.id P₁)
+  right_inv : PairHomotopy (invFun ◾ toFun) (PairMap.id P₂)
 
 infixl:25 " ≃ₕ " => PairMap.PairHomotopyEquiv
 
@@ -380,6 +377,9 @@ lemma id_eq_pairmap_id {P : TopPair} : 𝟙 P = PairMap.id P := rfl
 @[simp]
 lemma comp_eq_pairmap_comp {P₁ P₂ P₃ : TopPair} {f : P₁ ⟶ P₂} {g : P₂ ⟶ P₃} : f ≫ g = PairMap.comp f g := rfl
 
+@[ext]
+lemma pairmap_eq_iff_toFun_eq' {f g: P₁ ⟶ P₂} (h : f.toFun = g.toFun) : f = g := PairMap.pairmap_eq_iff_toFun_eq h
+
 
 end TopPairegory
 /-
@@ -387,9 +387,6 @@ end TopPairegory
 -/
 
 namespace Homology
-
-structure IsTrivial {A R : Type*} [Ring R] [AddCommMonoid A] [Module R A] where
-  isUnique : Unique A
 
 /-
 protected def trivial (R : Type*) [Ring R] : TopPair ⥤ ModuleCat R where
@@ -401,15 +398,31 @@ protected def trivial (R : Type*) [Ring R] : TopPair ⥤ ModuleCat R where
 variable {R : Type*} [Ring R]
 variable {P : TopPair} {P' : TopPair}
 open PairMap TopPair
+open CategoryTheory
 
-open CategoryTheory in
+section Homotopy_invariance
+structure HomotopyInvariant (F : TopPair ⥤ ModuleCat R) : Prop :=
+  homotopy_inv {P P' : TopPair} {f f' : P ⟶ P'}: f ≃ₕ f' → (F.map f = F.map f')
 
-/-
-  Homotopy invariance
--/
+variable {F : TopPair ⥤ ModuleCat R} (h :HomotopyInvariant F)
+-- Send homotopy equivalence to isomorphism
 
-structure HomotopyInvariant {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
-  homotopy_inv : ∀ P P',  ∀ f f' : (P ⟶ P'), PairHomotopic f f' → (F.map f = F.map f')
+lemma homotopy_inv_id_to_id {f : P ⟶ P} (htp : f ≃ₕ (𝟙 P)) : F.map f = 𝟙 (F.obj P) := by
+  rw [← F.map_id]
+  apply h.homotopy_inv
+  exact htp
+
+
+lemma homotopy_inv_equi_iso (htp : P ≃ₕ P') : IsIso (F.map htp.toFun) where
+  out := by
+    use F.map htp.invFun
+    constructor
+    . rw [← F.map_comp, TopPairegory.comp_eq_pairmap_comp]
+      exact homotopy_inv_id_to_id h htp.left_inv
+    . rw [← F.map_comp, TopPairegory.comp_eq_pairmap_comp]
+      exact homotopy_inv_id_to_id h htp.right_inv
+
+end Homotopy_invariance
 
 /-
   Excisive
@@ -417,6 +430,10 @@ structure HomotopyInvariant {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) :
 
 structure Excisive {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
   excisive : ∀ P, ∀ U : Set (P.sub), IsIso (F.map (ExcisionInc P U))
+
+
+-- this is bad consider usig type class
+lemma excisive_iff_induce_iso {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) (h : Excisive F) {P : TopPair} {U : Set (P.sub)} : IsIso (F.map (ExcisionInc P U)) := h.excisive P U
 
 /-
   additivity
@@ -432,13 +449,21 @@ def SigmaTopPair {ι : Type} (P : ι → TopPair) : TopPair where
   isTotalTopologicalSpace := by infer_instance
   isSubTopologicalSpace := by infer_instance
   map := Sigma.map id (fun i a ↦ (@TopPair.map (P i)) a)
-  isEmbedding := sorry
+  isEmbedding := by
+    simp [embedding_iff]
+    have : Function.Injective (@id ι) := by simp [Function.Injective]
+    constructor
+    . apply (inducing_sigma_map this).mpr
+      exact fun i ↦ (P i).isEmbedding.toInducing
+    . apply Function.Injective.sigma_map this
+      exact fun i ↦ (P i).isEmbedding.inj
 
 def SigmaTopPairInc {ι : Type} (P : ι → TopPair) (i : ι) : PairMap (P i) (SigmaTopPair P) where
   toFun := fun a ↦ ⟨i, a⟩
   continuous_toFun := continuous_iSup_rng continuous_coinduced_rng
   sub_map := fun a ↦ ⟨i, a⟩
-  comm := sorry
+  comm := by ext x; simp [SigmaTopPair, Sigma.map_mk]
+
 
 structure Additive {R : Type*} [Ring R] (F : TopPair ⥤ ModuleCat R) : Prop :=
   additivity {ι : Type} (P : ι → TopPair) (i : ι): IsIso (F.map (SigmaTopPairInc P i))
@@ -508,7 +533,7 @@ structure ExOrdHomology (R : Type*) [Ring R] where
 
 
 structure OrdHomology (R : Type*) [Ring R] extends ExOrdHomology R where
-  dimension (n : ℤ) (α : Type) [Unique α] [TopologicalSpace α]: Nontrivial ((homology n).obj (toPair α)) → n = 0
+  dimension (n : ℤ) (α β: Type) [Unique α] [TopologicalSpace α]: Nontrivial ((homology n).obj (toPair α)) → n = 0
 
 end Homology
 
@@ -669,6 +694,12 @@ lemma horn_sub_boundary {n : ℕ} {i : Fin (n + 1)} : Λ(n, i) ⊆ ∂Δ(n) := b
 
 open Classical -- solve decidability ......
 
+lemma face_map_miss_one_vertex {n: ℕ} {i: Fin (n + 2)} {x : Δ(n)} : (d(n,i) x) i = 0 := by
+  simp
+  intro k hk
+  exfalso
+  apply Fin.succAbove_ne i k hk
+
 lemma face_map_exist_nonzero {n: ℕ} {i: Fin (n + 2)} {x : Δ(n)} : Set.Nonempty {j | (d(n,i) x) j ≠ 0} := by
   obtain ⟨j, hj⟩ := exsit_nonzero x
   use (δ i) j -- ` : Fin (n + 2) `
@@ -767,36 +798,125 @@ def VerH (n : ℕ) [NeZero n] (i : Fin (n + 1)) : Λ(n,i) := ⟨Ver n i, vertex_
 
 open PairMap
 
-def SimplexExciseVertex (n : ℕ) [NeZero n] {i : Fin (n+1)} := ExcisionInc P(Δ(n), ∂Δ(n)) {VerB n i}
+def SimplexExciseVertex (n : ℕ) [NeZero n] (i : Fin (n+1)) := ExcisionInc P(Δ(n), ∂Δ(n)) {VerB n i}
 
-variable {n : ℕ} [NeZero n] {i : Fin (n+2)} {j : Fin (n+2)}
+variable {n : ℕ} {i : Fin (n+2)} {j : Fin (n+2)}
 -- #check Excision P(Δ(n), ∂Δ(n)) {VerB n 0}
 
-lemma aux (x : Δ(n)) : (d(n,j) x) ∈ ({Ver (n+1) j}ᶜ : Set Δ(n+1)) := by sorry
+lemma face_map_miss_one_vertex' (x : Δ(n)) : (d(n,j) x) ∈ ({Ver (n+1) j}ᶜ : Set Δ(n+1)) := by
+  by_contra h
+  simp at h
+  have : (0 : NNReal) = 1 := by
+    calc 0 = (d(n, j) x) j := face_map_miss_one_vertex.symm
+    _ = (Ver (n + 1) j) j := by rw [h]
+    _ = 1 := by simp [Ver]
+  norm_num at this
 
-def FaceMapReduced : PairMap P(Δ(n), ∂Δ(n)) (Excision P(Δ(n+1), ∂Δ(n+1)) {VerB (n+1) i}) where
-  toFun := by
-    rw [subset_to_pair_total_eq_total, excision_total_eq_total_excision, subset_to_pair_map_eq_inc, image]
-    -- simp only [subset_to_pair_total_eq_total, subset_to_pair_sub_eq_sub, mem_singleton_iff,
-    -- exists_eq_left, ver_b_val, setOf_eq_eq_singleton']
-    -- exact Set.codRestrict d(n, i) (↑{Ver (n + 1) i}ᶜ) aux
-  continuous_toFun := _
-  sub_map := _
-  comm := _
+
+def FaceMapReduced (n : ℕ) (i : Fin (n+2)): P(Δ(n), ∂Δ(n)) ⟶ (Excision P(Δ(n+1), ∂Δ(n+1)) {VerB (n+1) i}) where
+  toFun := -- by
+    -- dsimp [subset_to_pair_total_eq_total, excision_total_eq_total_excision, subset_to_pair_map_eq_inc, image,]
+    -- dsimp only [subset_to_pair_total_eq_total, subset_to_pair_sub_eq_sub,
+    --  excision_total_eq_total_excision, subset_to_pair_map_eq_inc]
+    --simp only [image_singleton]
+    --dsimp only [ver_b_val]
+    -- Set.codRestrict d(n, i) (↑{Ver (n + 1) i}ᶜ) aux
+    fun x ↦ ⟨d(n, i) x, by
+      simp only [subset_to_pair_sub_eq_sub, excision_total_eq_total_excision, subset_to_pair_map_eq_inc, image_singleton, ver_b_val]
+      exact face_map_miss_one_vertex' x⟩
+  continuous_toFun := by apply Continuous.codRestrict; continuity
+  sub_map := fun x ↦ ⟨⟨d(n,i) x.1, face_map_image_sub_boundary⟩, by
+      simp
+      by_contra h
+      apply congrArg Subtype.val at h
+      simp at h
+      apply @face_map_miss_one_vertex' n i x.1
+      exact h
+    ⟩
+  comm := by ext; simp; ext1; simp
 
 /-
-  I want to construct a function (the `toFun` above)
-  `P(↑(toTopObj [n]), ∂Δ(n)).total → (Excision P(↑(toTopObj [n + 1]), ∂Δ(n + 1)) {VerB (n + 1) i}).total`.
+TopologicalSimplex.face_map_image_sub_boundary {n : ℕ} {i : Fin (n + 2)} {x : ↑(toTopObj [n])} :
+  toTopMap (δ i) x ∈ ∂Δ(n + 1)
 
-  The left hand side is definitionally equal to `Δ(n)`.
+#check face_map_image_sub_boundary
+#check x.1
+#check d(n, i) x.1
+#check @face_map_image_sub_boundary n i x.1
+example : ∂Δ(n+1) := ⟨d(n,i) x.1, face_map_image_sub_boundary⟩
+example (h : x = y) : x.1 = y.1 := by exact congrArg Subtype.val h
+example (h : x.1 = y.1) : x = y := by ext1; simp [h]
 
-  But the right hand side seems be not 'definitionally' equal to `(↑{Ver (n + 1) i}ᶜ)` though I can prove them to be equal (need to use lemmas like `mem_singleton_iff` and `exists_eq_left`).
-
-  Now by `simp` and then `exact Set.codRestrict d(n, i) (↑{Ver (n + 1) i}ᶜ) aux` I can construct the function I need.
-
-  The problem is now that the function is casted (at least it's what's showed in the tactics states) how I can reason about its properties like continuity? Or is there any way to avoid the cast here?
-
-  By the way, I guess it's the definition of  `Excision` that makes everything messy. Is there any improvement?
+variable (x y: Δ(n))
+example (h : x = y ) : x (0 : Fin (n+1)) = y (0 : Fin (n+1)) := by exact
+  congrFun (congrArg Subtype.val h) 0
 -/
 
+def FaceMapPairMap (n : ℕ) (i : Fin (n+2)): P(Δ(n), ∂Δ(n)) ⟶ P(Δ(n+1), ∂Δ(n+1)) where
+  toFun := d(n,i)
+  continuous_toFun := by continuity
+  sub_map := fun x ↦ ⟨d(n,i) x.1, face_map_image_sub_boundary⟩
+  comm := by ext; simp
+
+lemma face_map_decompose_through_reduced_map : FaceMapPairMap n i = (FaceMapReduced n i) ≫ (SimplexExciseVertex (n+1) i) := by
+  simp
+  ext
+  simp [FaceMapPairMap, FaceMapReduced, SimplexExciseVertex, ExcisionInc]
+
+-- lemma face_map_decompose_through_reduced_map' : (FaceMapPairMap n i : P(Δ(n), ∂Δ(n)) ⟶ P(Δ(n+1), ∂Δ(n+1))) = (FaceMapReduced n i : P(Δ(n), ∂Δ(n)) ⟶ (Excision P(Δ(n+1), ∂Δ(n+1)) {VerB (n+1) i})) ≫ (SimplexExciseVertex (n+1) i) := by simp;
+
+---- This is `FALSE`.....
+def FaceMapReducedPairHomotopyEquiv : P(Δ(n), ∂Δ(n)) ≃ₕ (Excision P(Δ(n+1), ∂Δ(n+1)) {VerB (n+1) i}) where
+  toFun := FaceMapReduced n i
+  invFun := sorry
+  left_inv := sorry
+  right_inv := sorry
+
 end TopologicalSimplex
+
+section Homology_of_Topological_Simplex
+open TopPair Homology TopologicalSimplex
+
+variable {R : Type*} [Ring R]
+variable {H : OrdHomology R}
+variable {n : ℕ} {i : Fin (n+2)}
+
+-- maybe instance?
+instance reduced_face_map_induce_iso {k : ℤ}: IsIso ((H.homology k).map (FaceMapReduced n i)) := homotopy_inv_equi_iso (H.homotopy_inv k) FaceMapReducedPairHomotopyEquiv
+
+instance excision_inc_induce_is_isp {k : ℤ} : IsIso ((H.homology k).map (SimplexExciseVertex (n+1) i)) := by
+  apply excisive_iff_induce_iso _ (H.excisive k)
+
+instance face_map_induce_is_iso (k : ℤ) : IsIso ((H.homology k).map (FaceMapPairMap n i)) := by
+  rw [face_map_decompose_through_reduced_map]
+  simp only [Functor.map_comp]
+  apply IsIso.comp_isIso
+
+-- lemma subsingleton_unique_topology {α : Type} (h : Subsingleton α) [t1 : TopologicalSpace α] [t2 : TopologicalSpace α] : t1 = t2 := by simp only [eq_iff_true_of_subsingleton]
+
+def face_map_induce_iso {k : ℤ} :(H.homology k).obj P(Δ(n),∂Δ(n)) ≅ (H.homology k).obj P(Δ(n+1),∂Δ(n+1))where
+  hom := (H.homology k).map (FaceMapPairMap n i)
+  inv := CategoryTheory.inv ((H.homology k).map (FaceMapPairMap n i))
+  hom_inv_id := by simp
+  inv_hom_id := by simp
+
+
+def face_map_induce_iso' (k : ℤ) : (H.homology k).obj P(Δ(n),∂Δ(n)) ≃ₗ[R] (H.homology k).obj P(Δ(n+1),∂Δ(n+1)) := CategoryTheory.Iso.toLinearEquiv (@face_map_induce_iso R _ H n i k)
+
+example (n : ℕ) : (H.homology n).obj P(Δ(n),∂Δ(n)) ≃ₗ[R] (H.homology 0).obj P(Δ(0),∂Δ(0)) := by
+  induction n
+  case zero =>
+    have h1 : P(↑(SimplexCategory.toTopObj (SimplexCategory.mk Nat.zero)), ∂Δ(0)) = P(Δ(0),∂Δ(0)) := rfl
+    have h2 : H.homology Nat.zero =  H.homology 0 := rfl
+    rw [h1, h2]
+    -- rw [Nat.zero] does not work
+  case succ n hn =>
+
+
+#check ModuleCat
+
+end Homology_of_Topological_Simplex
+
+variable {R :Type} [Ring R] (α β γ : Type) [AddCommMonoid α] [AddCommMonoid β] [AddCommMonoid γ] [Module R α] [Module R β] [Module R γ]
+
+-- example (f : α ≃ₗ[R] β) (g : β ≃ₗ[R] γ) : α ≃ₗ[R] γ := f ≪≫ₗ g
